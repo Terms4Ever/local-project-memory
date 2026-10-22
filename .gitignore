@@ -13,7 +13,7 @@ failed/
 *-preservation.json
 last-error.json
 manifest.json
-.claude/
+.claude/settings.local.json
 .codex/
 .claude.json
 .env

@@ -32,7 +32,7 @@ po snapshotu na novém PC nebudou; nejde o průběžnou synchronizaci.
 
 Nepřenášej celé `.claude`, `.codex` ani konfigurační zálohy. Obsahují místní
 cesty a mohou obsahovat přihlašovací údaje. Samotné projekty přenes nebo
-naklonuj zvlášť — paměť neobsahuje jejich zdrojové soubory.
+naklonuj zvlášť - paměť neobsahuje jejich zdrojové soubory.
 
 ### 2. Nový počítač: vybrat mapování
 
@@ -52,7 +52,7 @@ py transfer.py restore "D:\private-transfer\memory-snapshot.sqlite3" --map "PUVO
 
 Pro více projektů opakuj `--map "ID=CESTA"`. Nová složka musí existovat. Git
 repozitáře se přiřadí podle své nové Git identity, ostatní složky se zaregistrují.
-Dva staré projekty nelze bez dalšího namapovat na jeden nový — program to odmítne.
+Dva staré projekty nelze bez dalšího namapovat na jeden nový - program to odmítne.
 
 Příkaz ověří integritu, počty a vazby, připraví kopii stranou a teprve potom ji
 zveřejní jako novou místní databázi. Snapshot nemění. Při chybě nevytvoří částečně

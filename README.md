@@ -1,181 +1,137 @@
-# Local Project Memory
+# 🧠 Local Project Memory
 
-Local, project-scoped and session-scoped memory for Claude Code and Codex.
-Windows installer · Python standard library · SQLite FTS5 · stdio MCP
+**Lokální paměť projektů a chatů pro Claude Code a Codex**
 
-Vlastní lokální paměť pro práci v **Claude Code a Codexu**. Program ukládá
-události přes hooky a nabízí hledání i strukturované poznámky přes MCP server
-`project-memory`. Není to oficiální produkt Anthropic ani OpenAI a není to
-balíček pro jejich plugin marketplace. Verze **1.2.0**.
+Ukládá pracovní kontext na počítači, odděluje projekty i samostatné sessions
+a umožňuje dohledat rozhodnutí v dalších chatech. Hooky zachycují události,
+MCP nástroje zpřístupňují hledání a poznámky. Program je určen pro místní práci
+na Windows; nejde o oficiální produkt Anthropic ani OpenAI.
 
-**Tento repozitář obsahuje pouze program a syntetické testy. Neobsahuje žádné
-uživatelské konverzace, databáze paměti, účty ani přihlašovací údaje.**
+![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)
+![SQLite](https://img.shields.io/badge/SQLite-FTS5-003B57?logo=sqlite&logoColor=white)
+![Windows](https://img.shields.io/badge/Windows-11-0078D4)
+![License](https://img.shields.io/badge/license-proprietary-red)
+[![Pravidla: nastroje](https://img.shields.io/badge/pravidla-nastroje-0969da)](https://github.com/Terms4Ever/nastroje)
 
-## Instalace na jiný počítač
+---
 
-Podporovaný instalátor: **Windows 11**, PowerShell, **Python 3.11+** a Git for
-Windows dostupné v PATH. Místně ověřeno na Pythonu 3.13; CI testuje 3.11 a 3.13.
-Claude Code / Codex musí být již nainstalované a přihlášené zvlášť. Je potřeba
-verze hosta podporující použitá MCP a hook rozhraní; kompatibilita všech verzí
-desktop aplikací není garantována. macOS/Linux instalátor zatím není podporován.
+## ✨ Hlavní funkce
 
-1. Stáhni tento repozitář přes **Code → Download ZIP** a rozbal ho, případně jej
-   naklonuj. Program nestahuje ani nepřenáší tvoje staré záznamy.
-2. Pokud chceš přenést i starou paměť, proveď **nejdřív obnovu zálohy** podle
-   [návodu k přenosu](docs/TRANSFER.md). Jinak začni s prázdnou databází.
-3. V rozbalené složce spusť jednorázově v PowerShellu:
+- **Paměť projektu:** Git worktrees sdílejí poznatky, nezávislé klony zůstávají oddělené.
+- **Paměť session:** chat bez rozpoznaného projektu má vlastní kontext podle hosta a session ID.
+- **Zachycení práce:** hooky ukládají pokyny, použití nástrojů a předání; disková fronta umožňuje opakovat přerušený zápis.
+- **Vyhledávání a poznámky:** pět MCP nástrojů pro kontext, hledání, čtení, uložení a stav.
+- **Přenos mezi PC:** soukromý snapshot s výslovným přiřazením projektů k novým cestám.
+- **Instalace pro jeden či oba hosty:** zachovává cizí konfiguraci a vytváří zálohu změn.
 
-   ```powershell
-   py install.py --host both
-   py memory.py check
-   ```
+Repozitář obsahuje program a syntetické testy, žádné osobní záznamy. Paměť
+nevytváří automatické AI souhrny ani nesynchronizuje počítače. Důležitá
+rozhodnutí musí pracující agent uložit; celá historie se do kontextu nevejde.
 
-   Jen Claude: `py install.py --host claude`. Jen Codex: `py install.py --host codex`.
-   Alternativně `./install.ps1 -HostApp both`, pokud místní politika dovoluje
-   spouštění PowerShell skriptů. Není potřeba administrátor ani změna politiky.
-   Pokud nemáš příkaz `py`, použij `python` s Pythonem 3.11 nebo novějším.
+---
 
-4. Pro Codex musí být nové hooky **důvěryhodné/povolené**. Instalátor je sám
-   neschvaluje. Postup ověření je níže. Pouhé připojení MCP nedokazuje, že se
-   automaticky ukládají události.
-5. Otevři nový lokální chat. Pokud host drží staré MCP připojení, aplikaci znovu
-   otevři. V chatu napiš:
+## 🛠️ Tech Stack
 
-   > Ověř project-memory, jeho verzi a MEMORY_SCOPE. Ukaž, jestli používáš paměť
-   > projektu, nebo session. Zkontroluj čekající události a chyby. Před prací
-   > vyhledej související rozhodnutí a po práci ulož stručné předání se zdrojem.
+| Vrstva | Technologie |
+|---|---|
+| Program | Python 3.11+, pouze standardní knihovna |
+| Úložiště | SQLite, FTS5, WAL a transakce |
+| Integrace | MCP přes stdio a příkazové hooky |
+| Instalace | Windows 11, PowerShell, Git for Windows |
+| Testy | unittest, GitHub Actions na Windows, Python 3.11 a 3.13 |
+| Pravidla dokumentace | sdílená sada nastroje, kontroly v PHP 8.3+ |
 
-Očekávaná verze: **1.2.0**. Ukládání/hledání nevyžaduje model, API klíč, Chroma
-ani vzdálenou databázi. Samotný Claude/Codex však dál používá svého poskytovatele
-modelu; kontext předaný modelu není „offline AI“.
+PHP slouží jen k údržbě repozitáře. Pro běh paměti není potřeba PHP, Chroma,
+API klíč ani další Python balíčky. Claude/Codex dál používá svého poskytovatele
+modelu; místní úložiště neznamená offline zpracování kontextu modelem.
 
-### Co instalátor změní
+---
 
-Program zkopíruje do `%USERPROFILE%\.project-memory\app`. Databáze a fronty
-jsou ve `%USERPROFILE%\.project-memory`, mimo tento repozitář.
+## 📁 Struktura projektu
 
-Podle volby hosta přidá vlastní položky do:
-
-| Host | Konfigurace |
-| --- | --- |
-| Claude | `%USERPROFILE%\.claude\settings.json`, `%USERPROFILE%\.claude.json` |
-| Codex | `%USERPROFILE%\.codex\hooks.json`, `%USERPROFILE%\.codex\config.toml` |
-
-Původní nastavení, cizí hooky a pluginy zachová. Před změnami konfigurace vytvoří
-zálohy a manifest v `config-backups`. Souběžnou změnu konfigurace nebo jiný již
-existující server stejného jména odmítne. Konfigurace s nestandardním profilem,
-`CLAUDE_CONFIG_DIR` či `CODEX_HOME` nejsou automaticky rozpoznány; instalátor
-používá výše uvedené výchozí cesty. Vzdálené/cloudové sessions nepokrývá.
-
-### Ověření Codexu
-
-Pokud je k dispozici CLI `codex` v PATH, lze bez modelového požadavku ověřit
-MCP i skutečné načtení hooků:
-
-```powershell
-py verify_codex.py
+```text
+local-project-memory/
+├── memory.py                 # databáze, izolace, hooky a MCP
+├── install.py                # instalace a návrat konfigurace
+├── install.ps1               # spouštěcí skript pro Windows
+├── transfer.py               # obnova soukromého snapshotu na novém PC
+├── import_legacy.py          # volitelný import z claude-mem
+├── verify_codex.py           # ověření MCP a důvěry hooků Codexu
+├── verify_session.py         # přímé ověření nainstalovaných hooků
+├── test_memory.py            # testy paměti, izolace a odolnosti
+├── test_portability.py       # testy instalace a přenosu
+├── .pravidla.json            # jediná primární sada pravidel
+├── .readme-kontrola.json      # zapnuté kontroly dokumentace
+├── AGENTS.md                 # pokyny vlastní tomuto projektu
+├── CLAUDE.md                 # odkaz na společné pokyny agenta
+├── docs/                     # stav, rozhodnutí a provozní návody
+└── .github/                  # společné kontroly, testy a šablona issue
 ```
 
-Očekává se pět našich hooků `enabled=true`, `trusted=trusted`, žádné chyby a MCP
-server verze 1.2.0. Pokud hooky nejsou důvěryhodné, nejprve zkontroluj jejich
-příkazy a program. Po této kontrole je lze schválit:
+---
+
+## 📚 Dokumentace
+
+| Dokument | K čemu |
+|---|---|
+| [Stav projektu](docs/00-stav-projektu.md) | co je ověřeno, co zbývá a známá omezení |
+| [Postup práce](docs/01-postup-prace.md) | změny paměti, kontroly a společná pravidla |
+| [Nasazení a vydávání](docs/02-nasazeni.md) | sestavení ZIPu, vydání, aktualizace a návrat |
+| [Rozhodovací deník](docs/03-rozhodovaci-dennik.md) | přijatá rozhodnutí a jejich důvody |
+| [Ověření](docs/04-overeni.md) | testovací příkazy, jejich důkazy a hranice |
+| [Přenos na jiný počítač](docs/TRANSFER.md) | snapshot, mapování cest a import claude-mem; původní URL zůstává platné |
+| [Instalace a používání](docs/06-instalace-a-pouziti.md) | úplný postup, nastavení hostů a každodenní práce |
+| [Identita a ukládání paměti](docs/07-identita-a-ukladani.md) | rozlišení projektu/session, fronta a schéma SQLite |
+| [Soukromí a bezpečnost](docs/08-soukromi-a-bezpecnost.md) | co se ukládá, omezení filtrů a co nesmí do veřejného balíčku |
+
+---
+
+## 🚀 Instalace (lokální vývoj)
+
+Potřebuješ Windows, Python 3.11+ a Git dostupné v PATH. Claude Code a Codex
+musí být nainstalované a přihlášené samostatně. Pro čisté testy účty potřeba nejsou.
 
 ```powershell
-py verify_codex.py --trust-reviewed-hooks --manifest "CESTA_K_MANIFESTU_Z_INSTALACE"
-```
-
-Pomocník schvaluje pouze příkazy této instalace a zazálohuje změnu důvěry.
-Parametr manifest aktualizuje hash pro případný návrat. Pokud daná verze Codexu
-nepodporuje discovery API nebo nemáš CLI v PATH, tato kontrola selže: nepovažuj
-automatické ukládání za ověřené, dokud host skutečně nespustí hook.
-
-Přímá kontrola nainstalovaných příkazů a MCP:
-
-```powershell
-py verify_session.py --host both
-```
-
-Pro jeden host použij `--host claude` nebo `--host codex`. Kontrola vytvoří malé
-diagnostické session záznamy s náhodnými ID. Nenahrazuje ověření, že host hooky
-opravdu vyvolává při běžném chatu. Výsledky ukládá místně, nikoli do repozitáře.
-
-## Jak se odděluje paměť
-
-- **Git projekt:** skutečná cesta společné Git databáze. Worktrees sdílejí
-  poznatky; nezávislé klony ne. Větev/commit jsou metadata záznamu, nikoli důkaz,
-  že je změna jiného chatu již začleněná.
-- **Registrovaná složka bez Gitu:** kořen a jeho podadresáře sdílejí paměť.
-  Registrace: `py memory.py register "C:\work\my-project"`.
-- **Bez rozpoznaného projektu:** vlastní paměť podle hosta + session/thread ID,
-  i když dva chaty používají stejnou technickou pracovní složku. Stejná session
-  pokračuje ve své paměti; nový chat s novým ID ji automaticky nepřebírá.
-- **Připojení projektu:** staré session záznamy se automaticky neslučují.
-- **Chybějící identita:** bez cwd i bez platného session ID se zápis odmítne.
-
-Host neposkytuje jednotný spolehlivý příznak „přiřazená složka v UI“. Proto je
-pro společnou paměť ne-Git složky nutná výslovná registrace. Git se pozná sám.
-
-Hook vkládá `MEMORY_SCOPE`. Agent má tyto hodnoty předat do **každého** nástroje:
-`project_memory_context`, `project_memory_search`, `project_memory_read`,
-`project_memory_remember`, `project_memory_status`. Například session bez složky:
-
-```json
-{"scope":"session","platform":"codex","session_id":"ID_Z_HOOKU","query":"rozhodnutí"}
-```
-
-Nástroje odmítnou číst či nahradit ID z jiné zvolené paměti. Rozdělení není
-bezpečnostní bariéra mezi uživateli počítače: lokální proces má přístup ke své
-databázi a agent může výslovně vybrat jinou známou scope. Starší API s pouhým
-cwd zůstává výslovným přístupem k projektové paměti.
-
-## Spolehlivost a limity
-
-Hooky zachycují SessionStart, UserPromptSubmit, PostToolUse, Stop, SubagentStop
-a v Claude také PostToolUseFailure. Událost se nejdřív atomicky zapíše do diskové
-fronty. SQLite používá WAL, FULL synchronizaci a transakce. Následující hook
-zkouší čekající události znovu; chyby se zachovají ve `failed` a jsou viditelné
-ve statusu. Není to běžící monitorovací služba a plný disk stále způsobí chybu.
-
-**Nevznikají automatické AI souhrny.** Rozhodnutí a předání ukládá agent přes
-remember; surové události lze vyhledat i bez těchto poznámek. Fulltext je
-lexikální, kontext omezený a záznamy mohou zastarat. Paměť nezaručuje správné
-chování modelu ani úplné zapamatování všech detailů. Není synchronizace mezi PC.
-
-Filtr citlivých hodnot je pouze částečný. Databáze a zálohy mohou obsahovat
-soukromé informace a nejsou šifrované tímto programem. **Nikdy je necommituj.**
-Výchozí `.gitignore` pomáhá, nenahrazuje kontrolu obsahu před publikací.
-Případný dříve instalovaný claude-mem zůstává zapnutý; jeho vlastní vkládání
-kontextu ani izolace se touto instalací nemění.
-
-## Záloha, přenos, návrat
-
-```powershell
-py memory.py backup
-py memory.py check
-py memory.py replay
-```
-
-Backup používá SQLite backup API včetně WAL. Nekopíruj pouze živý `.sqlite3`
-soubor. [Přenos na druhý počítač a mapování složek](docs/TRANSFER.md).
-Import existujícího claude-mem: [návod](docs/TRANSFER.md#import-z-claude-mem).
-
-Návrat konfigurace: `py install.py --rollback "CESTA_K_MANIFESTU"`. Odmítne
-přepsat pozdější uživatelské změny; pak je nutné selektivně odstranit pouze
-vlastní položky. Databázi nemaže. Před aktualizací zálohuj také adresář `app`;
-instalátor kopie programu aktualizuje, manifest obnovuje pouze konfiguraci.
-
-## Vývoj a testy
-
-```powershell
+git clone https://github.com/Terms4Ever/local-project-memory.git
+cd local-project-memory
 py -m unittest -v test_memory test_portability
+py install.py --host both
+py memory.py check
 ```
 
-Žádné externí Python balíčky. Testy používají dočasné uživatele, složky a
-syntetické databáze; nevyžadují účty ani model. CI běží na Windows s Pythonem
-3.11 a 3.13. Testy pokrývají izolaci, worktrees, souběžné zápisy, přerušení
-transakce, replay, MCP, instalaci/rollback a přenos se změnou cest.
+Místo `both` lze zvolit `claude` nebo `codex`. Pokud nemáš příkaz `py`, použij
+`python` s odpovídající verzí. Pro běžnou instalaci lze také stáhnout ZIP
+z [vydání](https://github.com/Terms4Ever/local-project-memory/releases).
 
-Rozhraní hostů: [Claude hooks](https://code.claude.com/docs/en/hooks),
-[Claude MCP](https://code.claude.com/docs/en/mcp). Codex discovery pomocník je
-ověřován proti skutečnému místnímu `codex app-server` a může vyžadovat úpravu
-při změně jeho rozhraní.
+**Přenášíš i historii? Obnov ji před první instalací** podle
+[návodu k přenosu](docs/TRANSFER.md). Obnova odmítá přepsat existující databázi.
+Codex navíc vyžaduje ověřit a schválit hooky podle
+[instalačního návodu](docs/06-instalace-a-pouziti.md#ověření-codexu).
+
+Potom otevři nový místní chat a požádej o ověření `project-memory`, verze,
+`MEMORY_SCOPE` a čekajících/chybných událostí. Pokud host drží staré připojení,
+aplikaci znovu otevři. Restart PC není součástí postupu.
+
+---
+
+## 📦 Nasazení
+
+Program se distribuuje jako zdrojový repozitář a ZIP v GitHub Releases.
+Push spustí workflow **Kontroly**: společná pravidla `nastroje` a testy na
+Windows pro dvě verze Pythonu. Vydání se připravuje ručně až po jejich úspěchu;
+push sám neaktualizuje žádný uživatelský počítač.
+
+Na cílovém PC instalátor zkopíruje program a přidá hooky/MCP vybraným hostům.
+Databáze leží mimo repozitář v uživatelském profilu. Osobní data, konfigurace
+účtů, zálohy a klíče se do vydání nezahrnují. Automatická aktualizace,
+periodické zálohy ani synchronizace mezi počítači nejsou zapnuté.
+
+Postup vydání, kontrola jeho obsahu a návrat jsou v
+[dokumentaci nasazení](docs/02-nasazeni.md). Výsledky testů jsou v
+[GitHub Actions](https://github.com/Terms4Ever/local-project-memory/actions).
+
+---
+
+## 📄 Licence
+
+Proprietární software. Veškerá práva vyhrazena.

@@ -1,0 +1,21 @@
+name: Tvar issue
+
+# Tvar se pozná hned, jak issue vznikne nebo se změní, ne až u nejbližšího
+# pushe. Pravidla žijí v Terms4Ever/nastroje.
+on:
+  issues:
+    types: [opened, edited, closed, reopened, labeled, unlabeled, assigned, unassigned]
+
+# Kontrola štítkuje a píše komentář, proto zápis do issues.
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  tvar:
+    name: Kontrola
+    # Jen issue od vlastníka a spolupracovníků. Cizí hlášení z internetu se
+    # neštítkuje ani nekomentuje a hlavně: běh, který smí zapisovat do issues,
+    # nejde spustit zvenčí. Repozitáře jsou zčásti veřejné.
+    if: contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.issue.author_association)
+    uses: Terms4Ever/nastroje/.github/workflows/issue-tvar.yml@main

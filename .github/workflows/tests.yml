@@ -1,17 +1,24 @@
-name: Windows tests
+name: Kontroly
 on: [push, pull_request, workflow_dispatch]
 permissions:
   contents: read
+  issues: read
 jobs:
+  readme:
+    name: Pravidla nastroje
+    uses: Terms4Ever/nastroje/.github/workflows/readme.yml@main
   tests:
+    name: Testy paměti (Python ${{ matrix.python-version }})
     runs-on: windows-latest
     strategy:
       matrix:
         python-version: ['3.11', '3.13']
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Stáhnout kód
+        uses: actions/checkout@v4
+      - name: Připravit Python
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Test isolated fixtures
+      - name: Ověřit paměť a přenos v izolovaných profilech
         run: python -m unittest -v test_memory test_portability

@@ -25,6 +25,12 @@ def setup(home=None,user=None,hosts=('claude','codex')):
     for name in ('memory.py','import_legacy.py','install.py','README.md','verify_codex.py','verify_session.py','transfer.py'):
         p=source/name
         if p.exists() and p.resolve()!=(app/name).resolve():shutil.copy2(p,app/name)
+    # README links stay usable in the installed copy; never copy runtime data.
+    for p in (source/'docs').glob('*.md'):
+        dest=app/'docs'/p.name
+        if p.resolve()!=dest.resolve():
+            dest.parent.mkdir(parents=True,exist_ok=True)
+            shutil.copy2(p,dest)
     mem=Memory(home);mem.close()
     records=[];plans=[];originals={}
     batch=home/'config-backups'/(dt.datetime.now().strftime('%Y%m%d-%H%M%S')+'-'+uuid.uuid4().hex[:6])

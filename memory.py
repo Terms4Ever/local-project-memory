@@ -13,7 +13,7 @@ import subprocess
 import sys
 import uuid
 
-VERSION = '1.2.0'
+VERSION = '1.2.1'
 MAX_BODY = 24000
 KINDS = ('decision', 'fact', 'handoff', 'preference')
 

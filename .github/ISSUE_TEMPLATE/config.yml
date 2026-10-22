@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Otázka na zadavatele
+    url: https://github.com/Terms4Ever
+    about: Co není úkol ani chyba, patří do zprávy, ne do issue.

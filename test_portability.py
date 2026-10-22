@@ -89,6 +89,8 @@ class PortabilityTests(unittest.TestCase):
         setup(self.base/'installed',user,('claude',))
         self.assertTrue((user/'.claude/settings.json').exists())
         self.assertFalse((user/'.codex').exists())
+        self.assertTrue((self.base/'installed/app/docs/06-instalace-a-pouziti.md').exists())
+        self.assertTrue((self.base/'installed/app/docs/TRANSFER.md').exists())
 
     def test_codex_only_install_leaves_claude_absent(self):
         user=self.base/'user'
