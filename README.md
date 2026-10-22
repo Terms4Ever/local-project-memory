@@ -74,15 +74,16 @@ local-project-memory/
 
 | Dokument | K čemu |
 |---|---|
-| [Stav projektu](docs/00-stav-projektu.md) | co je ověřeno, co zbývá a známá omezení |
-| [Postup práce](docs/01-postup-prace.md) | změny paměti, kontroly a společná pravidla |
-| [Nasazení a vydávání](docs/02-nasazeni.md) | sestavení ZIPu, vydání, aktualizace a návrat |
-| [Rozhodovací deník](docs/03-rozhodovaci-dennik.md) | přijatá rozhodnutí a jejich důvody |
-| [Ověření](docs/04-overeni.md) | testovací příkazy, jejich důkazy a hranice |
-| [Přenos na jiný počítač](docs/TRANSFER.md) | snapshot, mapování cest a import claude-mem; původní URL zůstává platné |
-| [Instalace a používání](docs/06-instalace-a-pouziti.md) | úplný postup, nastavení hostů a každodenní práce |
-| [Identita a ukládání paměti](docs/07-identita-a-ukladani.md) | rozlišení projektu/session, fronta a schéma SQLite |
-| [Soukromí a bezpečnost](docs/08-soukromi-a-bezpecnost.md) | co se ukládá, omezení filtrů a co nesmí do veřejného balíčku |
+| `AGENTS.md` | kontext pro vývoj: doménová pravidla, kontroly a postup nasazení |
+| `docs/00-stav-projektu.md` | živý stav: co je hotové, co se dělá, co je dál a na co si dát pozor |
+| `docs/01-postup-prace.md` | jak se mění paměť, jaké kontroly spustit a čeho se vyvarovat |
+| `docs/02-nasazeni.md` | sestavení ZIPu, vydání, aktualizace a návrat |
+| `docs/03-rozhodovaci-dennik.md` | co bylo kdy rozhodnuto a proč; nové rozhodnutí je nový záznam |
+| `docs/04-overeni.md` | co testy dokazují, kde běží a co je potřeba ověřit v aplikaci |
+| `docs/TRANSFER.md` | přenos paměti na jiný počítač, mapování cest a import claude-mem |
+| `docs/06-instalace-a-pouziti.md` | instalace, nastavení hostů a každodenní práce |
+| `docs/07-identita-a-ukladani.md` | rozlišení projektu a session, fronta a schéma SQLite |
+| `docs/08-soukromi-a-bezpecnost.md` | co se ukládá, omezení filtrů a co nesmí do veřejného balíčku |
 
 ---
 

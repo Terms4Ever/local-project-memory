@@ -42,3 +42,11 @@ projektů: proprietární, bez udělení nové otevřené licence.
 Balíček s dokumentací dostává patch verzi 1.2.1; již zveřejněný ZIP 1.2.0 se
 nemění. Historie publikovaného commitu se kvůli doplnění pravidel nepřepisuje;
 další commity používají úplné jméno autora a jeho GitHub noreply adresu.
+
+## R005 - 22. 10. 2026 - Tabulka dokumentace ukazuje skutečné cesty
+
+Vlastník upřesnil vzhled tabulky podle ostatních projektů. První sloupec
+proto uvádí skutečné cesty souborů ve formátu kódu, nikoli pojmenované odkazy.
+Stejně jako ve Steelsetu obsahuje i AGENTS.md. Popisy vysvětlují účel dokumentu;
+informace o zachování staré URL zůstává v R004, ne v přehledové tabulce.
+Jde o úpravu README na hlavní větvi, bez změny programu nebo vydaných ZIPů.
