@@ -78,7 +78,7 @@ local-project-memory/
 | `docs/00-stav-projektu.md` | živý stav: co je hotové, co se dělá, co je dál a na co si dát pozor |
 | `docs/01-postup-prace.md` | jak se mění paměť, jaké kontroly spustit a čeho se vyvarovat |
 | `docs/02-nasazeni.md` | sestavení ZIPu, vydání, aktualizace a návrat |
-| `docs/03-rozhodovaci-dennik.md` | co bylo kdy rozhodnuto a proč; nové rozhodnutí je nový záznam |
+| `docs/03-rozhodovaci-denik.md` | co bylo kdy rozhodnuto a proč; nové rozhodnutí je nový záznam |
 | `docs/04-overeni.md` | co testy dokazují, kde běží a co je potřeba ověřit v aplikaci |
 | `docs/TRANSFER.md` | přenos paměti na jiný počítač, mapování cest a import claude-mem |
 | `docs/06-instalace-a-pouziti.md` | instalace, nastavení hostů a každodenní práce |
