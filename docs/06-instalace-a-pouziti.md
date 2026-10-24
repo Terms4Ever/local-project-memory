@@ -6,7 +6,7 @@ Windows installer · Python standard library · SQLite FTS5 · stdio MCP
 Vlastní lokální paměť pro práci v **Claude Code a Codexu**. Program ukládá
 události přes hooky a nabízí hledání i strukturované poznámky přes MCP server
 `project-memory`. Není to oficiální produkt Anthropic ani OpenAI a není to
-balíček pro jejich plugin marketplace. Verze **1.2.1**.
+balíček pro jejich plugin marketplace. Verze **1.3.0**.
 
 **Tento repozitář obsahuje pouze program a syntetické testy. Neobsahuje žádné
 uživatelské konverzace, databáze paměti, účty ani přihlašovací údaje.**
@@ -45,7 +45,7 @@ desktop aplikací není garantována. macOS/Linux instalátor zatím není podpo
    > projektu, nebo session. Zkontroluj čekající události a chyby. Před prací
    > vyhledej související rozhodnutí a po práci ulož stručné předání se zdrojem.
 
-Očekávaná verze: **1.2.1**. Ukládání/hledání nevyžaduje model, API klíč, Chroma
+Očekávaná verze: **1.3.0**. Ukládání/hledání nevyžaduje model, API klíč, Chroma
 ani vzdálenou databázi. Samotný Claude/Codex však dál používá svého poskytovatele
 modelu; kontext předaný modelu není „offline AI“.
 
@@ -77,7 +77,7 @@ py verify_codex.py
 ```
 
 Očekává se pět našich hooků `enabled=true`, `trusted=trusted`, žádné chyby a MCP
-server verze 1.2.1. Pokud hooky nejsou důvěryhodné, nejprve zkontroluj jejich
+server verze 1.3.0. Pokud hooky nejsou důvěryhodné, nejprve zkontroluj jejich
 příkazy a program. Po této kontrole je lze schválit:
 
 ```powershell
@@ -179,3 +179,17 @@ Rozhraní hostů: [Claude hooks](https://code.claude.com/docs/en/hooks),
 [Claude MCP](https://code.claude.com/docs/en/mcp). Codex discovery pomocník je
 ověřován proti skutečnému místnímu `codex app-server` a může vyžadovat úpravu
 při změně jeho rozhraní.
+
+## Čtení dlouhých záznamů
+
+project_memory_read vrací standardně nejvýše 8 000 znaků na záznam, celkem
+nejvýše 24 000 znaků na volání. Pole total_chars udává celou délku; pokud
+next_offset není null, pokračuj stejným ID a offset=next_offset. Parametr
+limit lze nastavit od 1 do 24 000. Otisk content_sha256 platí pro celý
+exportovaný text, nikoli jen pro aktuální stránku.
+
+Výchozí view=body čte úplný uložený text. view=source čte všechny původní
+položky importovaného řádku, stále s filtrací přihlašovacích údajů při
+předání modelu. Nefiltrovaný originál zůstává soukromě v databázi.
+Pole truncated nadále znamená neopravený starší záznam, nikoli stránkování.
+Po aktualizaci spusť nové připojení MCP, aby host načetl nové parametry čtení.

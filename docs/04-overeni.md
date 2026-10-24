@@ -9,13 +9,25 @@ Běžné unit testy nepotřebují účty Claude/Codex ani modelový požadavek.
 py -m unittest -v test_memory test_portability
 ```
 
-Celkem 51 testů pokrývá oddělení projektů/session/hostů, Git worktrees,
+Celkem 55 testů pokrývá oddělení projektů/session/hostů, Git worktrees,
 nezávislé klony, normalizaci Windows cest, persistence po restartu, souběžné
 zápisy, zámek databáze a opakování fronty, přerušenou transakci, idempotenci,
 nahrazení poznámky, redakci typických tajemství, MCP a zachování konfigurace.
 Přenos testuje jiné cesty na druhém PC, archivy, zachování sessions, odmítnutí
 přepsání cíle a chybné mapování. PowerShell launcher se reálně spouští
 v izolovaném uživatelském profilu.
+
+Verze 1.3.0 má pět vlastních testů: dlouhý Unicode záznam uložený celý
+a čtený po stránkách; rozpočet odpovědi rozdělený mezi ID a odmítnutí
+chybného offsetu či limitu; migrace schématu 2 na 3 se stejnými ID
+a fulltext, který sleduje opravu obsahu; filtrace uloženého originálu při
+čtení view=source, odmítnutí změněného originálu a kontrola jeho integrity;
+repair_legacy.py, který doplní nový řádek do mapovaného projektu a druhým
+během nic nezduplikuje. Starý test odmítnutí poznámky nad 24 000 znaků
+nahradil test úplného uložení, limit od 1.3.0 platí jen pro odpovědi.
+Každý z pěti testů padá, když se rozbije funkce, kterou hlídá (sabotáž
+ověřená ručně 24. 10. 2026). Opravu záznamu, který migrace už vložila
+zkrácený, testy neprověřují; to se ověřilo jen na skutečné databázi.
 
 CI běží na Windows s Pythonem 3.11 a 3.13. Verze 1.2.0 prošla v
 [tomto běhu](https://github.com/Terms4Ever/local-project-memory/actions/runs/39789719618)

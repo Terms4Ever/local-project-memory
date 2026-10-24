@@ -185,8 +185,69 @@ sys.stdin.readline()
         self.assertEqual(len(self.mem.search(str(self.a),'"utok" OR (brneni)*')['entries']),1)
         self.assertEqual(self.mem.search(str(self.b),'utok')['entries'],[])
 
-    def test_large_note_refused(self):
-        with self.assertRaises(ValueError):self.mem.remember(str(self.a),'huge','x'*24001)
+    def test_large_unicode_note_kept_whole_and_paged(self):
+        text='Řeřicha žluťoučká '*1500+'konec'
+        entry=self.mem.remember(str(self.a),'huge',text,request_id='huge')
+        parts=[];offset=0
+        while offset is not None:
+            page=self.mem.read(str(self.a),[entry['id']],offset=offset)['entries'][0]
+            self.assertLessEqual(len(page['body']),8000)
+            self.assertEqual((page['total_chars'],page['content_sha256']),(len(text),digest(text)))
+            parts.append(page['body']);offset=page['next_offset']
+        self.assertGreater(len(parts),3);self.assertEqual(''.join(parts),text)
+
+    def test_read_budget_split_across_ids_and_bad_paging_refused(self):
+        ids=[self.mem.remember(str(self.a),'Long '+str(i),'y'*10000)['id'] for i in range(3)]
+        pages=self.mem.read(str(self.a),ids,limit=24000)['entries']
+        self.assertEqual([(len(p['body']),p['next_offset']) for p in pages],[(8000,8000)]*3)
+        for offset,limit in ((-1,10),(0,0),(0,24001),(10001,10),('0',10)):
+            with self.assertRaises(ValueError):self.mem.read(str(self.a),ids[:1],offset=offset,limit=limit)
+
+    def test_schema_2_migrates_to_3_and_index_follows_updates(self):
+        entry=self.mem.remember(str(self.a),'Before','granite heron',request_id='old')
+        self.mem.db.executescript('DROP TABLE entry_originals;DROP TRIGGER entries_au;PRAGMA user_version=2;')
+        self.mem.close();self.mem=Memory(self.home)
+        self.assertEqual(self.mem.db.execute('PRAGMA user_version').fetchone()[0],3)
+        self.assertEqual(self.mem.read(str(self.a),[entry['id']])['entries'][0]['body'],'granite heron')
+        self.mem.db.execute("UPDATE entries SET body='copper falcon' WHERE id=?",(entry['id'],))
+        self.assertEqual(self.mem.search(str(self.a),'granite')['entries'],[])
+        self.assertEqual([e['id'] for e in self.mem.search(str(self.a),'falcon')['entries']],[entry['id']])
+
+    def test_source_view_filters_credentials_and_original_is_verified(self):
+        pid=self.mem.resolve(str(self.a))['id']
+        data={'tool_name':'Read','tool_input':{'file_path':'C:/w/.env'},'tool_response':'TOKEN=very-private'}
+        entry=self.mem.insert(pid,'fact','Legacy','body','legacy-test','k1')
+        self.mem.store_original(entry['id'],data)
+        page=self.mem.read(str(self.a),[entry['id']],view='source')['entries'][0]
+        self.assertNotIn('very-private',page['body']);self.assertIn('omitted',page['body'])
+        self.assertTrue(page['source_filtered']);self.assertTrue(page['original_available'])
+        self.assertIn('very-private',self.mem.original(entry['id']))
+        with self.assertRaises(ValueError):self.mem.store_original(entry['id'],{**data,'tool_name':'Write'})
+        self.mem.db.execute("UPDATE entry_originals SET chars=chars+1 WHERE entry_id=?",(entry['id'],))
+        with self.assertRaises(ValueError):self.mem.original(entry['id'])
+
+    def test_repair_legacy_restores_full_rows_and_is_repeatable(self):
+        from repair_legacy import repair
+        src=self.base/'old.sqlite3';long_text='historie '*4000
+        with contextlib.closing(sqlite3.connect(src)) as c:
+            c.executescript('''CREATE TABLE sdk_sessions(id INTEGER,project TEXT);
+              CREATE TABLE observations(id INTEGER,project TEXT,title TEXT,narrative TEXT,created_at TEXT);
+              CREATE TABLE session_summaries(id INTEGER,project TEXT,request TEXT,created_at TEXT);
+              CREATE TABLE user_prompts(id INTEGER,session_db_id INTEGER,prompt_text TEXT,created_at TEXT);
+              CREATE TABLE tool_uses(id INTEGER,project TEXT,tool_name TEXT,tool_input TEXT,tool_response TEXT,created_at TEXT);
+              INSERT INTO sdk_sessions VALUES(1,'old-a');''')
+            c.execute("INSERT INTO observations VALUES(1,'old-a','Long',?,'2026-01-01')",(long_text,));c.commit()
+        migrate(src,self.home,{'old-a':str(self.a)})
+        with contextlib.closing(sqlite3.connect(src)) as c:
+            c.execute("INSERT INTO observations VALUES(2,'old-a','Later','pozdni zaznam','2026-01-02')");c.commit()
+        first=repair(src,self.home,{'old-a':str(self.a)});second=repair(src,self.home)
+        self.assertTrue(first['complete'] and second['complete'])
+        self.assertEqual((first['inserted'],second['inserted'],second['verified']),(1,0,first['verified']))
+        self.assertEqual(len(self.mem.search(str(self.a),'pozdni')['entries']),1)
+        hit=self.mem.search(str(self.a),'historie')['entries'][0]
+        page=self.mem.read(str(self.a),[hit['id']],limit=24000)['entries'][0]
+        self.assertIn(long_text.strip(),self.mem.db.execute('SELECT body FROM entries WHERE id=?',(hit['id'],)).fetchone()[0])
+        self.assertGreater(page['total_chars'],len(long_text)-1)
 
     def test_folderless_sessions_and_hosts_are_isolated(self):
         a=scope_args(None,'same','claude','session')

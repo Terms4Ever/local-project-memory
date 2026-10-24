@@ -18,7 +18,7 @@ neinterpretují. Změna přiřazení neprovádí automatickou migraci starých z
 
 ## Databáze
 
-Verze schématu je SQLite user_version 2. Tabulky:
+Verze schématu je SQLite user_version 3. Tabulky:
 
 | Tabulka | Účel |
 |---|---|
@@ -27,6 +27,7 @@ Verze schématu je SQLite user_version 2. Tabulky:
 | entries | historické události a strukturované poznámky |
 | entries_fts | fulltext title/body s odkazy na entries |
 | imports | manifesty provedených importů |
+| entry_originals | úplné původní řádky, komprimovaný JSON, SHA-256 a délka |
 
 Události uchovávají zdroj, unikátní source_key, otisk obsahu, čas, session,
 původní cwd a dostupnou větev/commit. Poznámky se přidávají; nahrazení aktivní
@@ -36,7 +37,7 @@ historickým dokladem. Identita scope není přístupové oprávnění mezi uži
 
 ## Fronta a odolnost
 
-Hook nejdřív uloží omezený redigovaný JSON do pending přes fsync a atomické
+Hook nejdřív uloží úplný redigovaný JSON do pending přes fsync a atomické
 přejmenování. Pak provede SQLite zápis a odstraní přijatý soubor. Stejný zdrojový
 klíč se stejným obsahem nevytvoří duplicitu. Kolize obsahu nebo scope je chyba.
 Po úspěchu hook zkouší omezenou dávku starých událostí. Vadné se přesunou do
@@ -49,11 +50,17 @@ aby zachoval i zapsaná data z WAL.
 
 ## Limity kontextu a změny schématu
 
-Fulltext hledá slovní shodu, ne význam. Úryvky, payloady a počet poznámek
-v kontextu jsou omezené; delší archiv se musí dohledat. Není automatická
+Fulltext hledá slovní shodu, ne význam. Úryvky a počet poznámek
+v kontextu jsou omezené; uložené tělo záznamu se nezkracuje. Dlouhý obsah
+se čte přes offset a next_offset, nikoli jednou neomezenou odpovědí. Není automatická
 AI sumarizace. Pokyny aktuálního uživatele a projektu mají přednost před historií.
 
 Schéma 1 se čte přes existující migraci do 2, která doplňuje branch/git_commit.
 Příští migrace musí mít samostatný neměnný krok, transakci, test staré databáze,
 plán zálohy a důkaz zachování dat. Vydaná migrační logika se zpětně nepřepisuje.
-Ve verzi 1.2.1 není žádná nová změna schématu.
+Verze 1.3.0 přidává samostatnou transakční migraci 2 na 3: tabulku originálů
+a trigger pro údržbu FTS při změně obsahu. ID, projekty a záznamy se nemění.
+Starší spuštěný MCP proces může dokončit práci se stávajícími tabulkami,
+ale nové parametry čtení načte až nové připojení. Nové procesy verze 1.2.x
+schéma 3 odmítnou; návrat vyžaduje odpovídající zálohu, ne slepé přepsání
+programu. Pozdější události se nesmějí přepsat starou zálohou.

@@ -50,3 +50,28 @@ proto uvádí skutečné cesty souborů ve formátu kódu, nikoli pojmenované o
 Stejně jako ve Steelsetu obsahuje i AGENTS.md. Popisy vysvětlují účel dokumentu;
 informace o zachování staré URL zůstává v R004, ne v přehledové tabulce.
 Jde o úpravu README na hlavní větvi, bez změny programu nebo vydaných ZIPů.
+
+## R006 - 22. 10. 2026 - Úplné uložení, omezené odpovědi
+
+Limit 24 000 znaků nesmí ořezávat data při importu ani zachycení hooku.
+Verze 1.3.0 ukládá celé tělo a u legacy importu také úplný původní řádek
+v komprimované soukromé tabulce. Model dostává stránkovaný obsah se stejnou
+filtrací přihlašovacích údajů jako doposud. Počet řádků ani uložený otisk
+nenahrazují kontrolu skutečně uloženého plného obsahu.
+
+Schéma 3 rozšiřuje schéma 2 bez přejmenování projektů a ID. Oprava legacy
+záznamů respektuje již provedené přiřazení složek, používá transakční dávky
+a lze ji opakovat po přerušení. Report označí dokončení až po ověření
+plných textů, dekomprimovaných originálů, vazeb a indexu. Tato dávka
+je místní oprava; sama nezakládá vydání ani nezveřejňuje uživatelská data.
+
+## R007 - 24. 10. 2026 - Zdroj 1.3.0 na hlavní větvi
+
+Vlastník v dialogu zvolil nahrát lokální verzi 1.3.0 na GitHub. Zdroj byl jen
+v nainstalované aplikaci, kam instalátor nekopíruje testy, a nainstalovaný
+`test_memory.py` zůstal z 1.2.x: jeden test na něm padal, protože čekal
+odmítnutí poznámky nad 24 000 znaků, které 1.3.0 podle R006 už nedělá.
+Testy 1.3.0 se proto napsaly znovu podle R006: pět nových a jeden nahrazený,
+celkem 55 místo dříve uváděných 56. Každý nový test byl ověřen sabotáží.
+Commit nese jen zdroj a dokumentaci; vydání se ZIPem a tagem je samostatný krok.
+

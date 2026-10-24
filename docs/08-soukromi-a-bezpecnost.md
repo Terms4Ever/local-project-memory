@@ -21,8 +21,9 @@ vzory se redigují; události nad podezřelými soubory s přihlašovacími úda
 vynechají obsah. Jde o heuristiku, která nepozná všechna tajemství.
 
 Databáze není tímto programem šifrovaná. Chrání ji přístup uživatele Windows;
-proces běžící pod stejným účtem ji může číst. Původní snapshot claude-mem může
-obsahovat i nefiltrovaná historická data. Soukromý přenos vyžaduje bezpečné
+proces běžící pod stejným účtem ji může číst. Původní snapshot a tabulka entry_originals mohou
+obsahovat i nefiltrovaná historická data. Originály jsou komprimované, nikoli
+šifrované. MCP export zachovává filtraci i při čtení view=source. Soukromý přenos vyžaduje bezpečné
 úložiště nebo médium, nikoli GitHub issue či Release.
 
 ## MCP a model

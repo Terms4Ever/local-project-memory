@@ -20,6 +20,7 @@ na Windows; nejde o oficiální produkt Anthropic ani OpenAI.
 - **Paměť projektu:** Git worktrees sdílejí poznatky, nezávislé klony zůstávají oddělené.
 - **Paměť session:** chat bez rozpoznaného projektu má vlastní kontext podle hosta a session ID.
 - **Zachycení práce:** hooky ukládají pokyny, použití nástrojů a předání; disková fronta umožňuje opakovat přerušený zápis.
+- **Úplné záznamy:** celé texty a původní importované řádky, čtení dlouhých záznamů po částech.
 - **Vyhledávání a poznámky:** pět MCP nástrojů pro kontext, hledání, čtení, uložení a stav.
 - **Přenos mezi PC:** soukromý snapshot s výslovným přiřazením projektů k novým cestám.
 - **Instalace pro jeden či oba hosty:** zachovává cizí konfiguraci a vytváří zálohu změn.
@@ -56,6 +57,7 @@ local-project-memory/
 ├── install.ps1               # spouštěcí skript pro Windows
 ├── transfer.py               # obnova soukromého snapshotu na novém PC
 ├── import_legacy.py          # volitelný import z claude-mem
+├── repair_legacy.py          # doplnění celých záznamů staršího importu
 ├── verify_codex.py           # ověření MCP a důvěry hooků Codexu
 ├── verify_session.py         # přímé ověření nainstalovaných hooků
 ├── test_memory.py            # testy paměti, izolace a odolnosti

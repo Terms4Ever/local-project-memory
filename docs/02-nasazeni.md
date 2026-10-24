@@ -24,7 +24,7 @@ ZIP sestav z ověřeného commitu mimo zdrojovou složku:
 git archive --format=zip --prefix=local-project-memory/ --output=../local-project-memory.zip HEAD
 ```
 
-Rozbal do nové složky, ověř shodu souborů s git ls-files a spusť všech 51 testů.
+Rozbal do nové složky, ověř shodu souborů s git ls-files a spusť všech 55 testů.
 Nevytvářej ZIP kopií uživatelského profilu nebo pracovního adresáře s ignored
 soubory. Teprve po kontrole publikuj nové vydání a jeho ZIP pod novým tagem.
 Poznámky k vydání se předávají souborem; uvádějí změnu, požadavky a důkazy.
@@ -60,3 +60,14 @@ Verze 1.2.1 ponechává schéma 2; její změna dokumentace nevyžaduje datovou 
 
 Selhané ověření znamená nevydávat. Automatické aktualizace, plánované zálohy,
 obsluha výpadku ani vzdálené nasazení nejsou zapnuté.
+
+
+Verze 1.3.0 přechází ze schématu 2 na 3. Před aktualizací zálohuj databázi
+přes SQLite backup API a soubory aplikace. Ověř napřed izolovanou kopii.
+Měň program atomickou náhradou jednotlivých souborů, hlavní memory.py až
+po podpůrných souborech; host konfigurace nemusí být změněna. Spusť kontrolu
+novým procesem a při obnově legacy dat použij repair_legacy.py.
+Staré MCP připojení nezná stránkování, nové session musí načíst verzi 1.3.0.
+Návrat na starší program bez návratu schématu není podporovaný. Nikdy
+neobnovuj předchozí databázi přes novější práci bez odděleného zachování
+všech mezitím zapsaných událostí.

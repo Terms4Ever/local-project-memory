@@ -1,7 +1,9 @@
 # Stav projektu
 
-Aktualizováno 22. 10. 2026. Zdrojová verze 1.2.1 doplňuje standardní dokumentaci
-a kontroly nastroje; nemění formát databáze ani způsob ukládání oproti 1.2.0.
+Aktualizováno 24. 10. 2026. Verze 1.3.0 ukládá celé záznamy a původní
+importované řádky; schéma 3 přidává soukromé originály a údržbu fulltextového
+indexu při opravě obsahu. Zdrojový kód je na hlavní větvi (R007), vydání se
+ZIPem zatím nevzniklo.
 Číslo aplikace je konstanta VERSION v memory.py. Společný generátor zatím
 Python verzi nečte, proto jeho blok obsahuje pouze údaje, které umí zjistit.
 
@@ -33,7 +35,8 @@ konkrétního commitu, ne odhad podle staršího výsledku.
 ## Další práce
 
 - Sbírat důkazy z běžných desktop sessions pro podporované verze hostů.
-- Případnou další migraci databáze navrhnout samostatně s testem starého schématu.
+- Vydání 1.3.0 se ZIPem až po samostatném zadání a kontrolách vydání.
+- Zjistit, proč se část událostí hooků odkládá do `failed` (43 k 24. 10. 2026).
 - Automatické aktualizace a synchronizace PC nejsou zadáním této verze.
 
 ## Na co si dát pozor

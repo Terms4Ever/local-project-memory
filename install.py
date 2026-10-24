@@ -22,7 +22,7 @@ def setup(home=None,user=None,hosts=('claude','codex')):
     user=Path(user or Path.home());home=Path(home or user/'.project-memory').resolve()
     app=home/'app';app.mkdir(parents=True,exist_ok=True)
     source=Path(__file__).resolve().parent
-    for name in ('memory.py','import_legacy.py','install.py','README.md','verify_codex.py','verify_session.py','transfer.py'):
+    for name in ('memory.py','import_legacy.py','repair_legacy.py','install.py','README.md','verify_codex.py','verify_session.py','transfer.py'):
         p=source/name
         if p.exists() and p.resolve()!=(app/name).resolve():shutil.copy2(p,app/name)
     # README links stay usable in the installed copy; never copy runtime data.

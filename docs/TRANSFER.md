@@ -104,3 +104,26 @@ Opakovaný import stejné cesty a stejných záznamů je idempotentní; změněn
 stejného zdrojového ID vyvolá konflikt. Neměň cestu zdroje mezi opakovanými importy,
 protože je součástí identity importu. Pro přenos již importované paměti použij
 snapshot project-memory a `transfer.py`, nikoli opětovný import pod jinou cestou.
+
+## Doplnění úplného obsahu staršího importu
+
+Verze před 1.3.0 zkracovaly uložený text na 24 000 znaků. Otisk zdrojového
+řádku sám o sobě nepotvrzuje úplnost uloženého textu. repair_legacy.py
+pracuje s původní cestou zdroje, vytvoří konzistentní snapshot i zálohu
+cíle a doplní obsah po transakčních dávkách. Ověří celé uložené texty
+i skutečně dekomprimované původní řádky. Přiřazení existujících záznamů
+k projektům a sessions zůstane beze změny.
+
+```powershell
+py repair_legacy.py "C:\private\claude-mem.db" --home "$env:USERPROFILE\.project-memory" --map "historicky-nazev=C:\work\my-project"
+```
+
+Mapování platí jen pro dosud neimportované záznamy. Nový nerozpoznaný projekt
+zůstane archivem. Změněný zdrojový řádek vyvolá konflikt, nikoli přepsání.
+Report full-content-report.json uvádí průběh a complete=true až po všech
+obsahových kontrolách. Přerušený běh lze opakovat; již opravené řádky se
+neduplikují. Zálohy obsahují soukromá data a nesmějí na GitHub.
+
+Oprava importu neobnovuje výstup, který chyběl už v původním claude-mem.
+Starší zkrácené nativní hooky vyžadují samostatný doložený původní záznam
+hosta; program neodhadne chybějící obsah.
