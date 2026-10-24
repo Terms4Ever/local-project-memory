@@ -185,6 +185,13 @@ sys.stdin.readline()
         self.assertEqual(len(self.mem.search(str(self.a),'"utok" OR (brneni)*')['entries']),1)
         self.assertEqual(self.mem.search(str(self.b),'utok')['entries'],[])
 
+    def test_second_prompt_in_same_turn_is_kept(self):
+        base={'cwd':str(self.a),'session_id':'s','turn_id':'turn'}
+        for text in ('first question','dialog answer','dialog answer'):
+            record_event(self.mem,prepare_event('codex','UserPromptSubmit',{**base,'prompt':text}))
+        bodies=[r[0] for r in self.mem.db.execute("SELECT body FROM entries WHERE source='hook' ORDER BY id")]
+        self.assertEqual(len(bodies),2);self.assertIn('dialog answer',bodies[1])
+
     def test_large_unicode_note_kept_whole_and_paged(self):
         text='Řeřicha žluťoučká '*1500+'konec'
         entry=self.mem.remember(str(self.a),'huge',text,request_id='huge')

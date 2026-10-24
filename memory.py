@@ -14,7 +14,7 @@ import sys
 import uuid
 import zlib
 
-VERSION = '1.3.0'
+VERSION = '1.3.1'
 MAX_BODY = 24000
 MAX_READ_CHARS = 24000
 KINDS = ('decision', 'fact', 'handoff', 'preference')
@@ -400,7 +400,11 @@ def prepare_event(platform,event,data):
     body=safe_text(payload)
     # Journal the entire filtered payload. Only context/search/read responses are bounded.
     eid=data.get('tool_use_id') or data.get('event_id')
-    if not eid and event in ('UserPromptSubmit','Stop'):eid=data.get('turn_id')
+    if not eid and event in ('UserPromptSubmit','Stop'):
+        eid=data.get('turn_id')
+        # Codex submits a dialog answer as a second prompt inside the same turn;
+        # the text is part of the key so it is stored, not rejected as a conflict.
+        if eid and event=='UserPromptSubmit':eid=str(eid)+':'+digest(body)[:16]
     # Equal text without a host event ID can be a legitimate repeated instruction.
     # Disk-journal retries reuse this key; distinct invocations must not be lost.
     key=platform+':'+session+':'+str(data.get('agent_id',''))+':'+event+':'+(str(eid) if eid else uuid.uuid4().hex)

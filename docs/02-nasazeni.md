@@ -24,7 +24,7 @@ ZIP sestav z ověřeného commitu mimo zdrojovou složku:
 git archive --format=zip --prefix=local-project-memory/ --output=../local-project-memory.zip HEAD
 ```
 
-Rozbal do nové složky, ověř shodu souborů s git ls-files a spusť všech 55 testů.
+Rozbal do nové složky, ověř shodu souborů s git ls-files a spusť všech 56 testů.
 Nevytvářej ZIP kopií uživatelského profilu nebo pracovního adresáře s ignored
 soubory. Teprve po kontrole publikuj nové vydání a jeho ZIP pod novým tagem.
 Poznámky k vydání se předávají souborem; uvádějí změnu, požadavky a důkazy.

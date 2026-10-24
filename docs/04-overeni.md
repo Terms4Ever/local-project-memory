@@ -9,7 +9,7 @@ Běžné unit testy nepotřebují účty Claude/Codex ani modelový požadavek.
 py -m unittest -v test_memory test_portability
 ```
 
-Celkem 55 testů pokrývá oddělení projektů/session/hostů, Git worktrees,
+Celkem 56 testů pokrývá oddělení projektů/session/hostů, Git worktrees,
 nezávislé klony, normalizaci Windows cest, persistence po restartu, souběžné
 zápisy, zámek databáze a opakování fronty, přerušenou transakci, idempotenci,
 nahrazení poznámky, redakci typických tajemství, MCP a zachování konfigurace.
@@ -28,6 +28,8 @@ nahradil test úplného uložení, limit od 1.3.0 platí jen pro odpovědi.
 Každý z pěti testů padá, když se rozbije funkce, kterou hlídá (sabotáž
 ověřená ručně 24. 10. 2026). Opravu záznamu, který migrace už vložila
 zkrácený, testy neprověřují; to se ověřilo jen na skutečné databázi.
+Verze 1.3.1 přidává test, že druhý prompt ve stejném tahu Codexu (odpověď
+na dialog) se uloží a stejný text podruhé se nezduplikuje.
 
 CI běží na Windows s Pythonem 3.11 a 3.13. Verze 1.2.0 prošla v
 [tomto běhu](https://github.com/Terms4Ever/local-project-memory/actions/runs/39789719618)

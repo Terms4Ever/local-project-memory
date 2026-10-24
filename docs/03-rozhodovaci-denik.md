@@ -75,3 +75,17 @@ Testy 1.3.0 se proto napsaly znovu podle R006: pět nových a jeden nahrazený,
 celkem 55 místo dříve uváděných 56. Každý nový test byl ověřen sabotáží.
 Commit nese jen zdroj a dokumentaci; vydání se ZIPem a tagem je samostatný krok.
 
+## R008 - 24. 10. 2026 - Odpověď na dialog Codexu je samostatný prompt
+
+V instalaci leželo ve složce `failed` 43 událostí, všechny `UserPromptSubmit`
+z Codexu. Klíč promptu bez ID události byl `turn_id`. Codex ale posílá odpověď
+na svůj dialog jako druhý prompt ve stejném tahu, tedy se stejným klíčem
+a jiným textem; uložení to odmítlo jako konflikt idempotence a událost
+přesunulo do `failed`. Ověřeno čtením databáze: u všech 43 klíč existuje
+s jiným tělem, v ukázaném páru je druhé tělo odpověď na dialog.
+
+Klíč promptu s `turn_id` proto nese i otisk textu. Opakovaný pokus se stejným
+textem zůstává idempotentní, jiný text v tomtéž tahu se uloží. Uložené klíče
+se nemění. Nasazení do instalace a doplnění 43 odložených událostí je
+samostatný krok se zálohou databáze podle dokumentu 02.
+

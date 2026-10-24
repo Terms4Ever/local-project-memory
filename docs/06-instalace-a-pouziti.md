@@ -6,7 +6,7 @@ Windows installer · Python standard library · SQLite FTS5 · stdio MCP
 Vlastní lokální paměť pro práci v **Claude Code a Codexu**. Program ukládá
 události přes hooky a nabízí hledání i strukturované poznámky přes MCP server
 `project-memory`. Není to oficiální produkt Anthropic ani OpenAI a není to
-balíček pro jejich plugin marketplace. Verze **1.3.0**.
+balíček pro jejich plugin marketplace. Verze **1.3.1**.
 
 **Tento repozitář obsahuje pouze program a syntetické testy. Neobsahuje žádné
 uživatelské konverzace, databáze paměti, účty ani přihlašovací údaje.**
@@ -45,7 +45,7 @@ desktop aplikací není garantována. macOS/Linux instalátor zatím není podpo
    > projektu, nebo session. Zkontroluj čekající události a chyby. Před prací
    > vyhledej související rozhodnutí a po práci ulož stručné předání se zdrojem.
 
-Očekávaná verze: **1.3.0**. Ukládání/hledání nevyžaduje model, API klíč, Chroma
+Očekávaná verze: **1.3.1**. Ukládání/hledání nevyžaduje model, API klíč, Chroma
 ani vzdálenou databázi. Samotný Claude/Codex však dál používá svého poskytovatele
 modelu; kontext předaný modelu není „offline AI“.
 
@@ -77,7 +77,7 @@ py verify_codex.py
 ```
 
 Očekává se pět našich hooků `enabled=true`, `trusted=trusted`, žádné chyby a MCP
-server verze 1.3.0. Pokud hooky nejsou důvěryhodné, nejprve zkontroluj jejich
+server verze 1.3.1. Pokud hooky nejsou důvěryhodné, nejprve zkontroluj jejich
 příkazy a program. Po této kontrole je lze schválit:
 
 ```powershell
