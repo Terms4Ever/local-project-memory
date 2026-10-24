@@ -89,3 +89,13 @@ textem zůstává idempotentní, jiný text v tomtéž tahu se uloží. Uložen�
 se nemění. Nasazení do instalace a doplnění 43 odložených událostí je
 samostatný krok se zálohou databáze podle dokumentu 02.
 
+## R009 - 24. 10. 2026 - 1.3.1 nasazená a odložené prompty doplněné
+
+Vlastník v dialogu zvolil nasadit 1.3.1 a doplnit 43 odložených událostí.
+Postup podle dokumentu 02: záloha databáze přes SQLite backup API
+(quick_check ok), záloha aplikace, atomická náhrada dokumentace a nakonec
+`memory.py`. Události z `failed` dostaly klíč podle 1.3.1 (původní klíč
+a otisk textu), vrátily se do `pending` a `memory.py replay` je uložil:
+43 nových záznamů, `failed` i `pending` prázdné, odpověď na dialog jde
+najít fulltextem. Zůstává souběh popsaný ve stavu projektu.
+

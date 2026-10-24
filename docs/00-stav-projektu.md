@@ -4,7 +4,8 @@ Aktualizováno 24. 10. 2026. Verze 1.3.0 ukládá celé záznamy a původní
 importované řádky; schéma 3 přidává soukromé originály a údržbu fulltextového
 indexu při opravě obsahu. Verze 1.3.1 ukládá i odpověď na dialog Codexu, která
 přijde jako druhý prompt ve stejném tahu (R008). Zdrojový kód je na hlavní
-větvi, vydání se ZIPem zatím nevzniklo a instalace na PC běží dál na 1.3.0.
+větvi a od 24. 10. 2026 i v instalaci na PC (R009); vydání se ZIPem zatím
+nevzniklo.
 Číslo aplikace je konstanta VERSION v memory.py. Společný generátor zatím
 Python verzi nečte, proto jeho blok obsahuje pouze údaje, které umí zjistit.
 
@@ -37,7 +38,8 @@ konkrétního commitu, ne odhad podle staršího výsledku.
 
 - Sbírat důkazy z běžných desktop sessions pro podporované verze hostů.
 - Vydání se ZIPem až po samostatném zadání a kontrolách vydání.
-- Nasadit 1.3.1 do instalace a doplnit 43 odložených promptů z `failed` (R008).
+- Souběh dvou procesů nad stejnou událostí v `pending`: druhý hlásí WinError 2
+  při přesunu do `failed` (`last-error.json` 24. 10. 2026), událost se neztratí.
 - Automatické aktualizace a synchronizace PC nejsou zadáním této verze.
 
 ## Na co si dát pozor
