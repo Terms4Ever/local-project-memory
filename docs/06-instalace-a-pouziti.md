@@ -6,7 +6,7 @@ Windows installer · Python standard library · SQLite FTS5 · stdio MCP
 Vlastní lokální paměť pro práci v **Claude Code a Codexu**. Program ukládá
 události přes hooky a nabízí hledání i strukturované poznámky přes MCP server
 `project-memory`. Není to oficiální produkt Anthropic ani OpenAI a není to
-balíček pro jejich plugin marketplace. Verze **1.3.1**.
+balíček pro jejich plugin marketplace. Verze **1.5.1**.
 
 **Tento repozitář obsahuje pouze program a syntetické testy. Neobsahuje žádné
 uživatelské konverzace, databáze paměti, účty ani přihlašovací údaje.**
@@ -34,6 +34,9 @@ desktop aplikací není garantována. macOS/Linux instalátor zatím není podpo
    Alternativně `./install.ps1 -HostApp both`, pokud místní politika dovoluje
    spouštění PowerShell skriptů. Není potřeba administrátor ani změna politiky.
    Pokud nemáš příkaz `py`, použij `python` s Pythonem 3.11 nebo novějším.
+   Pro obnovu výpadků z místních přepisů přidej `--enable-reconciliation`.
+   Při aktualizaci existující databáze postupuj podle dokumentu
+   [Nasazení a vydání](02-nasazeni.md), včetně zálohy a převodu indexu.
 
 4. Pro Codex musí být nové hooky **důvěryhodné/povolené**. Instalátor je sám
    neschvaluje. Postup ověření je níže. Pouhé připojení MCP nedokazuje, že se
@@ -45,7 +48,7 @@ desktop aplikací není garantována. macOS/Linux instalátor zatím není podpo
    > projektu, nebo session. Zkontroluj čekající události a chyby. Před prací
    > vyhledej související rozhodnutí a po práci ulož stručné předání se zdrojem.
 
-Očekávaná verze: **1.3.1**. Ukládání/hledání nevyžaduje model, API klíč, Chroma
+Očekávaná verze: **1.5.1**. Ukládání/hledání nevyžaduje model, API klíč, Chroma
 ani vzdálenou databázi. Samotný Claude/Codex však dál používá svého poskytovatele
 modelu; kontext předaný modelu není „offline AI“.
 
@@ -77,7 +80,7 @@ py verify_codex.py
 ```
 
 Očekává se pět našich hooků `enabled=true`, `trusted=trusted`, žádné chyby a MCP
-server verze 1.3.1. Pokud hooky nejsou důvěryhodné, nejprve zkontroluj jejich
+server verze 1.5.1. Pokud hooky nejsou důvěryhodné, nejprve zkontroluj jejich
 příkazy a program. Po této kontrole je lze schválit:
 
 ```powershell
@@ -136,8 +139,15 @@ fronty. SQLite používá WAL, FULL synchronizaci a transakce. Následující ho
 zkouší čekající události znovu; chyby se zachovají ve `failed` a jsou viditelné
 ve statusu. Není to běžící monitorovací služba a plný disk stále způsobí chybu.
 
-**Nevznikají automatické AI souhrny.** Rozhodnutí a předání ukládá agent přes
-remember; surové události lze vyhledat i bez těchto poznámek. Fulltext je
+**Samostatná AI služba na pozadí neběží.** Rozhodnutí a předání ukládá agent přes
+remember. Od 1.5.0 Claude Stop jednou vyžádá chybějící předání po použití nástrojů;
+status rozlišuje requested, saved a not_confirmed v handoff_checks. Od 1.5.1
+potvrzení vychází také z databáze, zatímco handoff_sessions ukazuje samostatně
+čerstvost a důvod poslední kontroly. Práce na pozadí dovoluje průběžné předání
+bez čekání na výsledek úloh, s desetiminutovým odstupem od existující poznámky.
+Nová výzva může přijít až v dalším pracovním kroku. Jde o další
+pokračování Clauda, které může spotřebovat tokeny. Surové události lze vyhledat
+i bez těchto poznámek. Fulltext je
 lexikální, kontext omezený a záznamy mohou zastarat. Paměť nezaručuje správné
 chování modelu ani úplné zapamatování všech detailů. Není synchronizace mezi PC.
 

@@ -99,3 +99,89 @@ a otisk textu), vrátily se do `pending` a `memory.py replay` je uložil:
 43 nových záznamů, `failed` i `pending` prázdné, odpověď na dialog jde
 najít fulltextem. Zůstává souběh popsaný ve stavu projektu.
 
+## R010 - 25. 10. 2026 - Obsah paměti při každém promptu
+
+Pouhé ID záznamů nepomáhá, pokud model nezavolá čtení. Verze 1.3.2 proto
+předává vybrané znění aktivních poznámek, posledních předání a relevantní historie
+také při UserPromptSubmit. Obnova tak nezávisí pouze na SessionStart po kompakci.
+Právě ukládaný prompt se vyloučí podle source_key, systémová oznámení zůstávají
+uložená, ale nevybírají se jako uživatelské požadavky. Poznámky se hledají
+odděleně od syrových logů. Výběr je lexikální a omezený, nikoli AI souhrn.
+
+Fronta zůstává idempotentní a beze změny formátu. Chybějící soubor po zásahu
+druhého konzumenta je normální souběh; dočasný zákaz smazání otevřeného souboru
+ve Windows nechá již potvrzenou událost ve frontě k opakování. Jiné chyby se
+nepotlačují. Selhání replay starších událostí nesmí potlačit kontext nového
+promptu; varování a soubor chyby zůstávají viditelné. Zápis blokovaný SQLite
+zůstane v diskové frontě a výstup jej výslovně označí jako nepotvrzený.
+
+Zachovává se také nasazená oprava 1.3.1: dvě odlišné odpovědi uživatele uvnitř
+stejného Codex turn ID mají rozdílný klíč. Tato dávka nepublikuje soukromá data.
+
+Živá kontrola stejné dávky ukázala, že příliš dlouhý additionalContext host
+odloží do souboru. Kontext proto používá rozpočet JSON/UTF-8, ne pouze počet
+znaků, a samotné vzpomínky řadí před pokyny k nástrojům. Plná těla na disku
+zůstávají beze změny; kratší přenosový výběr není zkrácení uložené historie.
+
+## R011 - 28. 10. 2026 - Úplné poznámky, dohledatelné chyby a textový index
+
+Verze 1.4.0 přijímá jednoznačné kompatibilní obaly MEMORY_SCOPE a alias
+content; rozporné identity odmítá. Chyby MCP jsou viditelné ve statusu i
+kontextu. Kontext upřednostňuje vlastní rozpracovaný úkol a jednu celou
+poznámku před několika úryvky. Celkový limit hosta se nezvyšuje; žádný program
+nevynutí správné použití každého faktu modelem.
+
+Odvozený index má samostatnou migraci text_index_v1 se stavem a kurzorem.
+Základní schéma zůstává 3 pro běžící procesy 1.3.x. Index vzniká vedle starého,
+SQL fronta zachytí souběžné zápisy a jména se přepnou atomicky. Dlouhé binární
+řetězce se neindexují, ale původní těla a originály se nemění. Starý index
+zůstává pro výslovný návrat. Návrat ho sestaví z aktuálních dat, nesmí obnovit
+starou databázi přes novější práci. Zmenšování živého souboru není součástí kroku.
+
+Chybějící dokončené nástroje lze doplnit z místních transcriptů. Obnova má
+vlastní provenienci, kontroluje session/projekt a je idempotentní. Pozdější
+nativní událost nahrazuje aktivní rekonstruovanou reprezentaci. Neúspěšný
+historický pokus o poznámku si ponechá původní datum a označení obnovy;
+nepřepisuje novější poznámku agenta. Nezpracovatelné položky zůstávají k opakování.
+Krátký volitelný pomocný proces spouštěný hooky je místní; nevzniká cloudová
+automatizace, nové chaty ani trvale běžící služba.
+
+## R012 - 2. 11. 2026 - Kontrolované předání práce v Claude
+
+Zdravé ukládání událostí samo nezajišťuje, že agent vytvoří stručné aktuální
+předání. Proto Stop v 1.5.0 jednou požádá Claude o skutečný zápis přes MCP,
+pokud po použití nástrojů chybí nové vlastní předání nebo rozhodnutí.
+Trvalý marker na požadavek spolu se stop_hook_active brání nekonečnému
+pokračování. Úspěch se potvrzuje podle databáze, ne podle tvrzení modelu.
+Nedostupný nástroj není důvod opakovaně blokovat dokončení.
+
+Výběr kontextu dává poznámkám až 3 500 znaků v původním celkovém rozpočtu.
+Vlastní předání pokrývající poslední požadavek předchází sdílenému stavu;
+starší vlastní předání nemá vytlačit novější projektovou poznámku.
+Zachovává se oddělení projektů, sessions i hostů a úplná uložená historie.
+Nemění se schéma ani konfigurace hostů; nové chování Stop má pouze Claude.
+
+## R013 - 2. 11. 2026 - Potvrzený zápis a čerstvé předání jsou různé stavy
+
+Verze 1.5.1 zachovává důkaz uložené poznámky i po další práci. Kontrolní soubor
+se potvrzuje podle request_id v databázi, včetně již nahrazené poznámky, takže
+nový prompt ani chybějící druhý Stop nesmějí popřít provedený zápis. Čerstvost
+se hodnotí zvlášť podle posledního zaznamenaného nástroje vlastní session.
+
+Práce na pozadí může trvat hodiny. Namísto úplného vynechání dovoluje Stop
+průběžné předání: při chybějícím ihned, při existujícím po 10 minutách a nové
+práci. Jedna výzva na doručený prompt včetně oznámení dokončené úlohy spolu
+se stop_hook_active brání smyčce. Nejde o souhlas s novou prací ani pokyn
+ukončit běžící úlohy. Důvod každého rozhodnutí je viditelný ve statusu;
+historické Stop záznamy nově obsahují pouze bezpečné počty a příznaky.
+
+## R014 - 2. 11. 2026 - Publikace dosavadních místních oprav
+
+Vlastník požádal o doplnění oprav na GitHub. [Issue #1](https://github.com/Terms4Ever/local-project-memory/issues/1)
+sleduje tuto publikaci, nikoli zpětně vytvořenou historii předchozí práce.
+Zdroj 1.5.1 se slučuje s hlavní větví 1.3.1: zůstává kontrola délky uloženého
+originálu i šest dříve publikovaných testů. Původní rozhodnutí R001 až R009
+zůstávají zachovaná; dosud nepublikované záznamy navazují jako R010 až R013.
+Publikace zahrnuje program, dokumentaci a syntetické testy. Skutečná paměť,
+profily a zálohy zůstávají mimo repozitář. Push zdrojů není nové vydání ZIPu
+ani automatická aktualizace uživatelských instalací.

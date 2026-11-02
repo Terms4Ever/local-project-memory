@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import sqlite3
 import uuid
+import search_index
 from memory import Memory
 
 def inventory(snapshot):
@@ -68,6 +69,7 @@ def restore(snapshot,home,mapping=None):
                         raise ValueError('Record count changed during restore.')
                     if mem.db.execute('PRAGMA foreign_key_check').fetchall():
                         raise ValueError('Restored data failed relationship checks.')
+                while search_index.sync(mem.db,100):pass
                 mem.db.execute('PRAGMA wal_checkpoint(TRUNCATE)')
             # Atomic publish with no overwrite, even if another process created a DB.
             os.link(staged,target)

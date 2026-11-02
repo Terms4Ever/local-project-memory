@@ -37,8 +37,16 @@ def verify(hosts=('claude','codex')):
         assert marker in resumed['hookSpecificOutput']['additionalContext']
         foreign=run_hook('SessionStart',{'session_id':uid+'-other'})
         assert marker not in foreign['hookSpecificOutput']['additionalContext']
+        with contextlib.closing(Memory(home)) as mem:
+            mem.remember(scope_args(None,uid,host,'session'),'Diagnostic recall decision',
+                         marker+' approved diagnostic palette',kind='decision',request_id=uid+'-'+host)
+        prompted=run_hook('UserPromptSubmit',{**data,'prompt':'Continue with the previous decision.'})
+        assert marker+' approved diagnostic palette' in prompted['hookSpecificOutput']['additionalContext']
+        compact=run_hook('SessionStart',{**data,'source':'compact'})
+        assert marker+' approved diagnostic palette' in compact['hookSpecificOutput']['additionalContext']
         checks.append({'host':host,'installed_hooks':'passed','no_cwd':'passed',
-                       'resume_in_new_process':'passed','other_session_isolation':'passed'})
+                       'resume_in_new_process':'passed','other_session_isolation':'passed',
+                       'note_content_on_next_prompt':'passed','simulated_compact_event':'passed'})
     def call_mcp(name,args):
         req={'jsonrpc':'2.0','id':1,'method':'tools/call','params':{'name':name,'arguments':args}}
         p=subprocess.run([sys.executable,str(script),'serve'],input=json.dumps(req)+'\n',

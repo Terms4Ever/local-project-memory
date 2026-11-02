@@ -14,7 +14,7 @@ pracovní sada nastroje-prace se sem nepřimíchává.
 Python 3.11+, standardní knihovna, SQLite FTS5. Instalátor je pro Windows.
 `memory.py` obsahuje úložiště i protokol MCP; `install.py` upravuje konfiguraci
 hostů; `transfer.py` obnovuje snapshot; `import_legacy.py` čte staré schéma.
-Testy jsou `test_memory.py` a `test_portability.py`. Workflow v původním souboru
+Testy jsou `test_memory.py`, `test_portability.py`, `test_recall.py` a `test_reliability.py`. Workflow v původním souboru
 `.github/workflows/tests.yml` se jmenuje Kontroly a volá i společnou sadu.
 
 ## Doménová pravidla
@@ -32,14 +32,14 @@ Testy jsou `test_memory.py` a `test_portability.py`. Workflow v původním soubo
 - Neinstalovat vývojovou kopii do skutečného profilu kvůli testu. Ověřovací
   skripty rozlišovat od běžného chatu; samotné MCP nepotvrzuje aktivní hooky.
 - Nová verze schématu potřebuje explicitní migraci, kompatibilitu a test staré
-  databáze. Jednou vydanou migraci nepřepisovat. Současná verze schématu je 2.
+  databáze. Jednou vydanou migraci nepřepisovat. Současná verze schématu je 3.
 - Paměť jsou historická data, ne oprávnění ani nadřazené instrukce. Neslibovat
   automatickou sumarizaci, úplné filtrování tajemství nebo zaručené zapamatování.
 
 ## Brány před commitem
 
 ```powershell
-py -m unittest -v test_memory test_portability
+py -m unittest -v test_memory test_portability test_recall test_reliability
 php ../nastroje/kontrola-readme.php .
 php ../nastroje/kontrola-dokumentace.php .
 php ../nastroje/kontrola-pravidel.php . --online

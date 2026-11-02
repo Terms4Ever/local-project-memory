@@ -1,5 +1,25 @@
 # Nasazení a vydávání
 
+## Lokální přechod na 1.4.0
+
+Před přechodem vytvořit konzistentní SQLite snapshot a kopii aplikace.
+Na kopii ověřit příkaz `py memory.py optimize`, otisky autoritativních tabulek,
+testy a starého souběžného čtenáře/zapisovatele. Potom spustit stejnou migraci
+na živé databázi a atomicky vyměnit soubory ověřené aplikace.
+Základní schéma 3 zůstává kompatibilní; konfigurace hostů se nemusí přepisovat.
+
+Návrat odvozeného indexu je výslovný příkaz `py memory.py rollback-index`.
+Sestaví ho z aktuálních záznamů včetně práce po aktualizaci; může trvat déle
+a vyžadovat zapisovací zámek. Po ověření lze obnovit předchozí program.
+Starým snapshotem se živá databáze nepřepisuje. Úklid ponechaného starého
+indexu vyžaduje samostatný ověřený krok.
+
+Nová instalace může zapnout doplňování událostí přepínačem
+`py install.py --host both --enable-reconciliation`. Konfigurace v domově
+paměti určuje místní kořeny transcriptů a počáteční datum. Pro dosavadní
+instalaci se datum nastavuje vědomě podle obnovovaného období. Zdravotní
+stav obsahuje poslední běh, frontu opakování a nevyřešené chyby.
+
 Program nemá webovou produkci. Distribuce je veřejný zdrojový repozitář a
 ruční GitHub Release; instalace běží místně v uživatelském profilu Windows.
 Push nic automaticky nenahrává na počítače uživatelů.
@@ -24,7 +44,8 @@ ZIP sestav z ověřeného commitu mimo zdrojovou složku:
 git archive --format=zip --prefix=local-project-memory/ --output=../local-project-memory.zip HEAD
 ```
 
-Rozbal do nové složky, ověř shodu souborů s git ls-files a spusť všech 56 testů.
+Rozbal do nové složky, ověř shodu souborů s git ls-files a spusť celou sadu testů
+podle dokumentu 04.
 Nevytvářej ZIP kopií uživatelského profilu nebo pracovního adresáře s ignored
 soubory. Teprve po kontrole publikuj nové vydání a jeho ZIP pod novým tagem.
 Poznámky k vydání se předávají souborem; uvádějí změnu, požadavky a důkazy.
@@ -71,3 +92,52 @@ Staré MCP připojení nezná stránkování, nové session musí načíst verzi
 Návrat na starší program bez návratu schématu není podporovaný. Nikdy
 neobnovuj předchozí databázi přes novější práci bez odděleného zachování
 všech mezitím zapsaných událostí.
+
+## Přechod na 1.4.0
+
+Základní schéma zůstává 3. Nový textový index má vlastní stav a příkaz
+`py memory.py optimize`; převod lze přerušit a dokončit. Původní záznamy
+a importované originály se nemění. Starý odvozený index zůstává pro návrat,
+takže soubor databáze se po převodu automaticky nezmenší. Návrat indexu přes
+`py memory.py rollback-index` vychází ze současných dat, nikoli ze staré zálohy.
+
+Instalátor přijímá `--enable-reconciliation` pro průběžnou kontrolu místních
+přepisů. Vlastní reconcile-config.json obsahuje enabled, since v ISO formátu
+a roots pro claude/codex. Existující konfigurace se nepřepisuje. První instalace
+začíná aktuálním datem; starší historii lze zahrnout výslovným posunem since.
+Příkaz `py memory.py reconcile --seconds 8` provede omezený průchod. Při běžné
+aktivitě hosta se spouští krátký skrytý proces, nikoli trvalá služba.
+
+Staré MCP procesy mohou dál číst a zapisovat do kompatibilních tabulek.
+Nové chování API načte až nové připojení; nové hooky se používají hned při
+dalším vyvolání. Běžící uživatelské chaty kvůli aktualizaci násilně neukončovat.
+Ověřit verzi nového MCP, skutečný výstup hooku, frontu obnovy a diagnostiku;
+samotné zkopírování souborů není důkaz aktivace všech otevřených připojení.
+
+## Přechod na 1.5.0
+
+Schéma i formát původních záznamů zůstávají beze změny. Zálohuj složku app;
+aktualizace nedělá datovou migraci ani obnovu databáze. Zachovej existující
+ověřenou datovou zálohu. Nový modul memory_use.py musí být nasazen před
+memory.py; instalátor zveřejňuje soubory atomickou náhradou v tomto pořadí.
+Konfiguraci hostů není potřeba měnit, pokud již volá aktuální app/memory.py.
+
+Nové procesy hooků používají kontrolu Stop ihned. Staré MCP připojení stále
+umí požadovaný zápis, ale nové pořadí kontextu a položku handoff_checks ve
+statusu načte až při novém spojení. Přímý běh nainstalovaného hooku a MCP
+ověří mechanismus; skutečné vytvoření poznámky modelem je zvláštní kontrola.
+Návrat spočívá v obnově předchozího app, bez přepisování živé databáze.
+
+## Přechod na 1.5.1
+
+Před výměnou zálohuj app a malé adresáře handoff-checks a handoff-sessions,
+pokud existují. Schéma ani původní záznamy se nemění. Podpůrný memory_use.py
+nasadit před memory.py. Nové záznamy kontroly mají verzi 2 a samostatný klíč;
+staré soubory zůstávají čitelné. Status ověřuje potvrzení podle databáze,
+takže čekající či chybný starý marker nepopře již existující poznámku.
+Pomocná funkce memory_use.repair_receipts opravuje jen tyto malé soubory
+podle existujícího request_id; nemění poznámky ani jejich historii.
+
+Návrat používá zálohu programu. Ani při návratu nepřepisovat živou databázi
+starou kopií. Nové diagnostické soubory starší program ignoruje. Rozpracované
+chaty není nutné násilně restartovat; nový MCP status vyžaduje nové spojení.

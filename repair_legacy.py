@@ -68,6 +68,8 @@ def repair(source,home,mapping=None,batch_size=100):
         assert report['counts']==report['verified']
         if mem.db.execute('PRAGMA integrity_check').fetchone()[0]!='ok' or mem.db.execute('PRAGMA foreign_key_check').fetchone():
             raise ValueError('Destination integrity check failed.')
+        import search_index
+        while search_index.sync(mem.db,100):pass
         mem.db.execute("INSERT INTO entries_fts(entries_fts,rank) VALUES('integrity-check',1)")
         report.update(complete=True,finished=now(),integrity='ok',fts_integrity='ok')
         write_json_atomic(output,report)

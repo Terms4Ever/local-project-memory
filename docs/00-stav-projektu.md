@@ -1,11 +1,10 @@
 # Stav projektu
 
-Aktualizováno 24. 10. 2026. Verze 1.3.0 ukládá celé záznamy a původní
-importované řádky; schéma 3 přidává soukromé originály a údržbu fulltextového
-indexu při opravě obsahu. Verze 1.3.1 ukládá i odpověď na dialog Codexu, která
-přijde jako druhý prompt ve stejném tahu (R008). Zdrojový kód je na hlavní
-větvi a od 24. 10. 2026 i v instalaci na PC (R009); vydání se ZIPem zatím
-nevzniklo.
+Aktualizováno 2. 11. 2026. Verze 1.5.1 odděluje potvrzení zápisu od čerstvosti
+předání a zavádí průběžné kontroly i při práci na pozadí. Kontext upřednostňuje úplné aktuální
+poznámky před starým syrovým výstupem a nezaměňuje staré vlastní předání
+za poslední stav projektu. Celé záznamy a původní importované řádky
+zůstávají uložené; schéma 3 se nemění. Nové vydání na GitHubu zatím nevzniklo.
 Číslo aplikace je konstanta VERSION v memory.py. Společný generátor zatím
 Python verzi nečte, proto jeho blok obsahuje pouze údaje, které umí zjistit.
 
@@ -37,9 +36,8 @@ konkrétního commitu, ne odhad podle staršího výsledku.
 ## Další práce
 
 - Sbírat důkazy z běžných desktop sessions pro podporované verze hostů.
-- Vydání se ZIPem až po samostatném zadání a kontrolách vydání.
-- Souběh dvou procesů nad stejnou událostí v `pending`: druhý hlásí WinError 2
-  při přesunu do `failed` (`last-error.json` 24. 10. 2026), událost se neztratí.
+- Publikace zdrojů 1.5.1 a ověření CI se sledují v [issue #1](https://github.com/Terms4Ever/local-project-memory/issues/1).
+- Samostatný GitHub Release se ZIPem vyžaduje kontroly vydání podle dokumentu 02.
 - Automatické aktualizace a synchronizace PC nejsou zadáním této verze.
 
 ## Na co si dát pozor

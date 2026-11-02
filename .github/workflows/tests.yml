@@ -21,4 +21,4 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Ověřit paměť a přenos v izolovaných profilech
-        run: python -m unittest -v test_memory test_portability
+        run: python -m unittest -v test_memory test_portability test_recall test_reliability

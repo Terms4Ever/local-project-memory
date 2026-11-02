@@ -14,7 +14,7 @@ from memory import Memory, VERSION, write_json_atomic
 
 EVENTS=('SessionStart','UserPromptSubmit','PostToolUse','Stop','SubagentStop')
 
-def setup(home=None,user=None,hosts=('claude','codex')):
+def setup(home=None,user=None,hosts=('claude','codex'),enable_reconciliation=False):
     hosts=tuple(hosts)
     if not hosts or any(host not in ('claude','codex') for host in hosts):
         raise ValueError('Choose claude, codex, or both.')
@@ -22,9 +22,12 @@ def setup(home=None,user=None,hosts=('claude','codex')):
     user=Path(user or Path.home());home=Path(home or user/'.project-memory').resolve()
     app=home/'app';app.mkdir(parents=True,exist_ok=True)
     source=Path(__file__).resolve().parent
-    for name in ('memory.py','import_legacy.py','repair_legacy.py','install.py','README.md','verify_codex.py','verify_session.py','transfer.py'):
+    # Publish dependencies before the entry point; hooks may run during updates.
+    for name in ('memory_use.py','search_index.py','reconcile.py','import_legacy.py','repair_legacy.py','install.py','README.md','verify_codex.py','verify_session.py','transfer.py','memory.py'):
         p=source/name
-        if p.exists() and p.resolve()!=(app/name).resolve():shutil.copy2(p,app/name)
+        if p.exists() and p.resolve()!=(app/name).resolve():
+            temporary=app/(name+'.'+uuid.uuid4().hex+'.tmp')
+            shutil.copy2(p,temporary);os.replace(temporary,app/name)
     # README links stay usable in the installed copy; never copy runtime data.
     for p in (source/'docs').glob('*.md'):
         dest=app/'docs'/p.name
@@ -107,6 +110,11 @@ def setup(home=None,user=None,hosts=('claude','codex')):
         with open(tmp,'xb') as f:f.write(raw);f.flush();os.fsync(f.fileno())
         os.replace(tmp,path)
     write_json_atomic(batch/'manifest.json',report)
+    if enable_reconciliation:
+        config=home/'reconcile-config.json'
+        if not config.exists():
+            write_json_atomic(config,{'enabled':True,'since':dt.datetime.now(dt.timezone.utc).isoformat(),
+                'roots':{host:str(user/('.claude/projects' if host=='claude' else '.codex/sessions')) for host in hosts}})
     return report
 
 def rollback(manifest):
@@ -125,5 +133,6 @@ def rollback(manifest):
 if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('--home');p.add_argument('--user');p.add_argument('--rollback')
     p.add_argument('--host',choices=['claude','codex','both'],default='both')
-    a=p.parse_args();result=rollback(a.rollback) if a.rollback else setup(a.home,a.user,('claude','codex') if a.host=='both' else (a.host,))
+    p.add_argument('--enable-reconciliation',action='store_true',help='Repair missing completed tool events from local transcripts after this installation.')
+    a=p.parse_args();result=rollback(a.rollback) if a.rollback else setup(a.home,a.user,('claude','codex') if a.host=='both' else (a.host,),a.enable_reconciliation)
     print(json.dumps(result,ensure_ascii=False,indent=2))

@@ -25,9 +25,10 @@ na Windows; nejde o oficiální produkt Anthropic ani OpenAI.
 - **Přenos mezi PC:** soukromý snapshot s výslovným přiřazením projektů k novým cestám.
 - **Instalace pro jeden či oba hosty:** zachovává cizí konfiguraci a vytváří zálohu změn.
 
-Repozitář obsahuje program a syntetické testy, žádné osobní záznamy. Paměť
-nevytváří automatické AI souhrny ani nesynchronizuje počítače. Důležitá
-rozhodnutí musí pracující agent uložit; celá historie se do kontextu nevejde.
+Repozitář obsahuje program a syntetické testy, žádné osobní záznamy. Důležitá
+rozhodnutí ukládá pracující agent. V Claude kontrola Stop jednou vyžádá chybějící
+předání po práci; samostatná AI služba na pozadí neběží. Celá historie se do
+kontextu nevejde a paměť nesynchronizuje počítače.
 
 ---
 
@@ -53,6 +54,7 @@ modelu; místní úložiště neznamená offline zpracování kontextu modelem.
 ```text
 local-project-memory/
 ├── memory.py                 # databáze, izolace, hooky a MCP
+├── memory_use.py             # jednorázová kontrola předání v Claude
 ├── install.py                # instalace a návrat konfigurace
 ├── install.ps1               # spouštěcí skript pro Windows
 ├── transfer.py               # obnova soukromého snapshotu na novém PC
@@ -97,7 +99,7 @@ musí být nainstalované a přihlášené samostatně. Pro čisté testy účty
 ```powershell
 git clone https://github.com/Terms4Ever/local-project-memory.git
 cd local-project-memory
-py -m unittest -v test_memory test_portability
+py -m unittest -v test_memory test_portability test_recall test_reliability
 py install.py --host both
 py memory.py check
 ```

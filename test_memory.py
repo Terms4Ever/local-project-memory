@@ -11,6 +11,7 @@ import unittest
 from memory import Memory, canonical, digest, dispatch, hook, prepare_event, record_event, redact, replay, scope_args, write_json_atomic
 from import_legacy import migrate
 from install import setup, rollback
+from repair_legacy import repair
 
 def concurrent_write(args):
     home,cwd,index=args
@@ -185,6 +186,13 @@ sys.stdin.readline()
         self.assertEqual(len(self.mem.search(str(self.a),'"utok" OR (brneni)*')['entries']),1)
         self.assertEqual(self.mem.search(str(self.b),'utok')['entries'],[])
 
+    def test_large_note_preserved_and_read_is_bounded(self):
+        entry=self.mem.remember(str(self.a),'huge','x'*24001)
+        self.assertEqual(len(entry['body']),24001)
+        page=self.mem.read(str(self.a),[entry['id']])['entries'][0]
+        self.assertEqual(len(page['body']),8000)
+        self.assertEqual(page['total_chars'],24001)
+
     def test_second_prompt_in_same_turn_is_kept(self):
         base={'cwd':str(self.a),'session_id':'s','turn_id':'turn'}
         for text in ('first question','dialog answer','dialog answer'):
@@ -211,6 +219,13 @@ sys.stdin.readline()
             with self.assertRaises(ValueError):self.mem.read(str(self.a),ids[:1],offset=offset,limit=limit)
 
     def test_schema_2_migrates_to_3_and_index_follows_updates(self):
+        # A fresh 1.5.x database already uses the optional text index. Build
+        # the historical layout explicitly before exercising its migration.
+        from memory import SCHEMA
+        self.mem.close();self.home=self.base/'legacy-state';self.home.mkdir()
+        with contextlib.closing(sqlite3.connect(self.home/'memory.sqlite3')) as db:
+            db.executescript(SCHEMA)
+        self.mem=Memory(self.home)
         entry=self.mem.remember(str(self.a),'Before','granite heron',request_id='old')
         self.mem.db.executescript('DROP TABLE entry_originals;DROP TRIGGER entries_au;PRAGMA user_version=2;')
         self.mem.close();self.mem=Memory(self.home)
@@ -441,5 +456,107 @@ sys.stdin.readline()
         self.assertEqual(result.returncode,0,result.stderr)
         self.assertEqual(json.loads(result.stdout)['hookSpecificOutput']['hookEventName'],'SessionStart')
         with contextlib.closing(Memory(home)) as m:self.assertEqual(m.db.execute('SELECT count(*) FROM entries').fetchone()[0],1)
+
+    def test_full_unicode_hook_payload_and_paged_reads(self):
+        response='žluťoučký 🦊 '*7000+' tailsearchhedgehog'
+        data={'cwd':str(self.a),'session_id':'long','tool_name':'Read','tool_input':{'file_path':'normal.txt'},'tool_response':response}
+        event=prepare_event('codex','PostToolUse',data)
+        self.assertEqual(json.loads(event['body'])['tool_response'],response)
+        write_json_atomic(self.home/'pending'/'long.json',event)
+        self.assertEqual(replay(self.mem),1)
+        scope=event['memory_scope']
+        entry=self.mem.search(scope,'tailsearchhedgehog')['entries'][0]
+        self.assertEqual(entry['truncated'],0)
+        pieces=[];offset=0
+        while True:
+            page=dispatch(self.mem,'project_memory_read',{**scope,'ids':[entry['id']],'offset':offset,'limit':1777})['entries'][0]
+            self.assertLessEqual(len(page['body']),1777);pieces.append(page['body'])
+            if page['next_offset'] is None:break
+            offset=page['next_offset']
+        self.assertEqual(''.join(pieces),event['body'])
+        with self.assertRaises(ValueError):self.mem.read(str(self.b),[entry['id']],offset=20000)
+        with self.assertRaises(ValueError):self.mem.read(scope,[entry['id']],offset=-1)
+        with self.assertRaises(ValueError):self.mem.read(scope,[entry['id']],limit=24001)
+        with self.assertRaises(ValueError):self.mem.read(scope,[entry['id']],offset=10**8)
+
+    def test_schema_two_upgrade_preserves_data_and_reindexes_update(self):
+        # Construct the actual historical schema, not a new database with only
+        # its version number lowered (which now also has a versioned index).
+        from memory import SCHEMA
+        old_home=self.base/'schema-two';old_home.mkdir()
+        with contextlib.closing(sqlite3.connect(old_home/'memory.sqlite3')) as db:
+            db.executescript(SCHEMA)
+            project=self.mem.resolve(str(self.a))
+            db.execute('INSERT INTO projects VALUES(?,?,?,?,?,?)',tuple(project[k] for k in ('id','identity','name','root','legacy','created_at')))
+            db.execute("INSERT INTO entries(project_id,kind,title,body,created_at,source,source_key,source_hash) VALUES(?,?,?,?,?,?,?,?)",
+                       (project['id'],'fact','Old','prefix before repair','2026-01-01','note','old','original-hash'))
+            entry={'id':db.execute('SELECT id FROM entries').fetchone()[0]};db.commit()
+        with contextlib.closing(Memory(old_home)) as upgraded:
+            self.assertEqual(upgraded.db.execute('PRAGMA user_version').fetchone()[0],3)
+            self.assertEqual(upgraded.read(str(self.a),[entry['id']])['entries'][0]['body'],'prefix before repair')
+            upgraded.db.execute('UPDATE entries SET body=? WHERE id=?',('restoredtailquokka',entry['id']))
+            self.assertEqual(upgraded.search(str(self.a),'restoredtailquokka')['entries'][0]['id'],entry['id'])
+            self.assertEqual(upgraded.search(str(self.a),'prefix')['entries'],[])
+            upgraded.db.execute("INSERT INTO entries_fts(entries_fts,rank) VALUES('integrity-check',1)")
+
+    def test_legacy_repair_keeps_reassigned_scope_and_all_source_fields(self):
+        src=self.base/'legacy.sqlite3';text='complete 🦉 '*6000+' uniquetailwombat'
+        with contextlib.closing(sqlite3.connect(src)) as c:
+            c.executescript('''CREATE TABLE sdk_sessions(id INTEGER,project TEXT);
+                CREATE TABLE observations(id INTEGER,project TEXT,title TEXT,narrative TEXT,metadata TEXT);
+                CREATE TABLE session_summaries(id INTEGER,project TEXT);
+                CREATE TABLE user_prompts(id INTEGER,session_db_id INTEGER,prompt_text TEXT);
+                CREATE TABLE tool_uses(id INTEGER,project TEXT,tool_name TEXT,tool_input TEXT,tool_response TEXT);
+                INSERT INTO sdk_sessions VALUES(1,'old');''')
+            c.execute('INSERT INTO observations VALUES(1,?,?,?,?)',('old','Full source',text,'extra field never previously indexed'));c.commit()
+        migrate(src,self.home,{'old':str(self.a)})
+        entry=dict(self.mem.db.execute("SELECT * FROM entries WHERE source_key='observations:1'").fetchone())
+        destination=self.mem.resolve(str(self.b))
+        self.mem.db.execute('UPDATE entries SET project_id=?,body=substr(body,1,24000),truncated=1 WHERE id=?',(destination['id'],entry['id']))
+        self.mem.db.execute('DELETE FROM entry_originals WHERE entry_id=?',(entry['id'],))
+        before=src.read_bytes()
+        result=repair(src,self.home,{'old':str(self.a)},batch_size=1)
+        self.assertEqual(result['expanded'],1);self.assertEqual(result['inserted'],0)
+        repaired=dict(self.mem.db.execute('SELECT * FROM entries WHERE id=?',(entry['id'],)).fetchone())
+        self.assertEqual(repaired['project_id'],destination['id']);self.assertEqual(repaired['source_hash'],entry['source_hash'])
+        self.assertEqual(repaired['body'],entry['body']);self.assertEqual(repaired['truncated'],0)
+        raw=json.loads(self.mem.original(entry['id']))
+        self.assertEqual(raw['narrative'],text);self.assertEqual(raw['metadata'],'extra field never previously indexed')
+        self.assertEqual(self.mem.search(str(self.a),'uniquetailwombat')['entries'],[])
+        self.assertEqual(self.mem.search(str(self.b),'uniquetailwombat')['entries'][0]['id'],entry['id'])
+        again=repair(src,self.home,{'old':str(self.a)},batch_size=1)
+        self.assertEqual(again['expanded'],0);self.assertEqual(src.read_bytes(),before)
+        # The general importer must also preserve the corrected scope on retries.
+        migrate(src,self.home,{'old':str(self.a)})
+        self.assertEqual(self.mem.db.execute('SELECT project_id FROM entries WHERE id=?',(entry['id'],)).fetchone()[0],destination['id'])
+
+    def test_original_source_integrity_and_filtering(self):
+        entry=self.mem.remember(str(self.a),'Private source','safe summary')
+        raw={'id':7,'password':'never-export-this-value','text':'full 🐾 '*10000}
+        self.mem.store_original(entry['id'],raw)
+        self.assertEqual(json.loads(self.mem.original(entry['id'])),raw)
+        pieces=[];offset=0
+        while True:
+            page=self.mem.read(str(self.a),[entry['id']],offset=offset,view='source')['entries'][0]
+            pieces.append(page['body']);self.assertTrue(page['source_filtered'])
+            if page['next_offset'] is None:break
+            offset=page['next_offset']
+        exported=json.loads(''.join(pieces));self.assertEqual(exported['text'],raw['text'])
+        self.assertEqual(exported['password'],'[REDACTED]')
+        with self.assertRaises(ValueError):self.mem.read(str(self.b),[entry['id']],view='source')
+        with self.assertRaises(ValueError):self.mem.store_original(entry['id'],{'id':8})
+        self.mem.db.execute('UPDATE entry_originals SET sha256=? WHERE entry_id=?',('bad',entry['id']))
+        with self.assertRaises(ValueError):self.mem.original(entry['id'])
+
+    def test_long_notes_total_page_budget_and_failed_repair_is_observable(self):
+        notes=[self.mem.remember(str(self.a),'Long '+str(i),'x'*60000+' lasttail') for i in range(10)]
+        result=self.mem.read(str(self.a),[n['id'] for n in notes],limit=24000)
+        self.assertLessEqual(sum(len(n['body']) for n in result['entries']),24000)
+        self.assertTrue(all(n['next_offset'] for n in result['entries']))
+        from import_legacy import restore_existing
+        source={'id':1,'project':'old','title':'Legacy','narrative':'original'}
+        e=self.mem.insert(self.mem.resolve(str(self.a))['id'],'legacy_observation','Legacy','unexpected content','old','1',source_hash=digest(json.dumps(source,sort_keys=True,ensure_ascii=False)))
+        with self.assertRaises(ValueError),self.mem.transaction():restore_existing(self.mem,e,source,'observations')
+        self.assertEqual(self.mem.db.execute('SELECT body FROM entries WHERE id=?',(e['id'],)).fetchone()[0],'unexpected content')
 
 if __name__=='__main__':unittest.main(verbosity=2)
