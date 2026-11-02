@@ -114,12 +114,16 @@ class RecallTests(unittest.TestCase):
 
     def test_replay_another_consumer_unlinks_before_read(self):
         event=memory.prepare_event('claude','UserPromptSubmit',{'cwd':str(self.cwd),'session_id':'test-session','prompt':'durable'})
-        file=self.home/'pending'/'race.json';memory.write_json_atomic(file,event)
+        # Memory resolves TEMP aliases/junctions; intercept the path replay uses.
+        file=self.mem.home/'pending'/'race.json';memory.write_json_atomic(file,event)
+        intercepted=[]
         original=Path.read_text
         def read(path,*args,**kwargs):
-            if path==file:memory.record_event(self.mem,event);file.unlink()
+            if path==file:
+                intercepted.append(path);memory.record_event(self.mem,event);file.unlink()
             return original(path,*args,**kwargs)
         with patch.object(Path,'read_text',read):self.assertEqual(memory.replay(self.mem),0)
+        self.assertEqual(intercepted,[file])
         self.assertEqual(self.mem.db.execute('SELECT count(*) FROM entries').fetchone()[0],1)
 
     def test_failed_replay_does_not_suppress_context_or_hide_error(self):

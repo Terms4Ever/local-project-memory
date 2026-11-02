@@ -224,3 +224,10 @@ Opakovaný úplný běh na Windows s Pythonem 3.13 dne 2. 11. 2026:
 README, dokumentace, online pravidla a tvar issue prošly. Výsledky CI přesného
 publikovaného commitu na Pythonu 3.11 a 3.13 se dokládají při uzavření
 [issue #1](https://github.com/Terms4Ever/local-project-memory/issues/1).
+
+První GitHub CI nad 72f2aa1 odhalilo na obou Pythonech chybu testu souběhu:
+`test_replay_another_consumer_unlinks_before_read`, `AssertionError: 1 != 0`.
+Mock porovnával cestu z TEMP s cestou normalizovanou úložištěm; na runneru
+se neshodovaly a simulovaný druhý konzument se vůbec nespustil. Test nyní
+používá normalizovaný domov úložiště a výslovně ověřuje vyvolání simulace.
+Produkční mechanismus fronty se touto opravou nemění.
