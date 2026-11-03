@@ -185,3 +185,22 @@ zůstávají zachovaná; dosud nepublikované záznamy navazují jako R010 až R
 Publikace zahrnuje program, dokumentaci a syntetické testy. Skutečná paměť,
 profily a zálohy zůstávají mimo repozitář. Push zdrojů není nové vydání ZIPu
 ani automatická aktualizace uživatelských instalací.
+
+## R015 - 3. 11. 2026 - Výsledek nástroje může předcházet volání
+
+[Issue #2](https://github.com/Terms4Ever/local-project-memory/issues/2) řeší
+skutečné obrácené pořadí řádků Claude transcriptu. Verze 1.5.1 takový výsledek
+přeskočila, pozdější volání ponechala v transcript_calls a kurzor posunula
+na konec. Verze 1.5.2 spojuje obě části nezávisle na pořadí.
+
+Nová pomocná tabulka transcript_results ukládá jen cestu, ID nástroje a byte
+offset. Neznámý obsah se nekopíruje do databáze, dokud vstup volání neumožní
+aplikovat filtr citlivých souborů. Při párování se znovu ověří session a ID.
+Zápis události a odstranění páru jsou jedna transakce; při chybě se použije
+dosavadní disková fronta opakování. Nedohledatelný či změněný výsledek má
+viditelnou diagnostiku a zachovaný odkaz, žádné potvrzení domnělého zápisu.
+
+Samostatný result_order_version u kurzoru označuje novou logiku. Starý Claude
+soubor s nepřiřazeným voláním se jednou čte znovu, i když velikost a mtime
+zůstaly stejné. Dlouhý průchod pokračuje po částech z nového kurzoru. Základní
+schéma 3 a tabulky historie se nemění; migrace pomocných tabulek je aditivní.

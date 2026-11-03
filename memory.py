@@ -18,7 +18,7 @@ import search_index
 import reconcile
 import memory_use
 
-VERSION = '1.5.1'
+VERSION = '1.5.2'
 MAX_BODY = 24000
 MAX_READ_CHARS = 24000
 MAX_CONTEXT_CHARS = 5000
@@ -485,6 +485,7 @@ class Memory:
                 'handoff_sessions':memory_use.sessions(self.home),
                 'search_pending_rows':self.db.execute('SELECT count(*) FROM search_dirty').fetchone()[0] if index_state else None,
                 'transcript_retries':len(list((self.home/'transcript-retry').glob('*.json'))),
+                'transcript_results_pending':self.db.execute('SELECT count(*) FROM transcript_results').fetchone()[0] if self.db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='transcript_results'").fetchone() else 0,
                 'reconciliation':json.loads((self.home/'reconcile-status.json').read_text(encoding='utf8')) if (self.home/'reconcile-status.json').exists() else None,
                 'pending_events':len(list((self.home/'pending').glob('*.json'))),
                 'failed_replays':len(list((self.home/'failed').glob('*.json'))),

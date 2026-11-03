@@ -28,6 +28,12 @@ def prepare(mem):
         PRIMARY KEY(path,call_id))''')
     if 'memory_sid' not in {r[1] for r in mem.db.execute('PRAGMA table_info(transcript_cursors)')}:
         mem.db.execute('ALTER TABLE transcript_cursors ADD COLUMN memory_sid TEXT')
+    # Additive reconciliation migration; old readers/writers keep schema 3.
+    mem.db.execute('''CREATE TABLE IF NOT EXISTS transcript_results(
+        path TEXT NOT NULL,call_id TEXT NOT NULL,byte_offset INTEGER NOT NULL,
+        PRIMARY KEY(path,call_id))''')
+    if 'result_order_version' not in {r[1] for r in mem.db.execute('PRAGMA table_info(transcript_cursors)')}:
+        mem.db.execute('ALTER TABLE transcript_cursors ADD COLUMN result_order_version INTEGER NOT NULL DEFAULT 0')
 
 
 def diagnostic(mem,m,tool,error):
@@ -147,10 +153,65 @@ def path_from_uri(value):
     return value
 
 
+def needs_order_rescan(mem,prior,path):
+    return bool(prior and prior['platform']=='claude' and not prior['result_order_version']
+                and mem.db.execute('SELECT 1 FROM transcript_calls WHERE path=? LIMIT 1',(str(path),)).fetchone())
+
+
+def already_captured(mem,path,sid,tool_id):
+    suffix=':'+tool_id
+    found=mem.db.execute("SELECT 1 FROM entries WHERE source IN ('hook','transcript') AND session_id=? AND substr(source_key,-?)=? LIMIT 1",
+                         (sid,len(suffix),suffix)).fetchone()
+    pending=found and mem.db.execute('''SELECT 1 FROM transcript_calls WHERE path=? AND call_id=?
+        UNION ALL SELECT 1 FROM transcript_results WHERE path=? AND call_id=? LIMIT 1''',
+        (path,tool_id,path,tool_id)).fetchone()
+    if pending:
+        with mem.transaction():
+            mem.db.execute('DELETE FROM transcript_calls WHERE path=? AND call_id=?',(path,tool_id))
+            mem.db.execute('DELETE FROM transcript_results WHERE path=? AND call_id=?',(path,tool_id))
+    return bool(found)
+
+
+def match_claude_result(mem,m,path,tool_id):
+    """Pair either order durably without storing an unclassified tool result."""
+    saved=mem.db.execute('SELECT payload FROM transcript_calls WHERE path=? AND call_id=?',(path,tool_id)).fetchone()
+    pending=mem.db.execute('SELECT byte_offset FROM transcript_results WHERE path=? AND call_id=?',(path,tool_id)).fetchone()
+    if not saved or not pending:return 0
+    call=json.loads(saved['payload'])
+    # Until the input identifies potential credential files, retain only a
+    # source offset. Never copy unknown result bytes into the database/journal.
+    try:
+        with Path(path).open('rb') as stream:
+            stream.seek(pending['byte_offset']);raw=stream.readline()
+        obj=json.loads(raw)
+        if obj.get('type')!='user' or obj.get('sessionId')!=call['sid']:
+            raise ValueError('Pending result no longer matches its recorded session.')
+        block=next((b for b in obj.get('message',{}).get('content',[]) if isinstance(b,dict)
+                    and b.get('type')=='tool_result' and b.get('tool_use_id')==tool_id),None)
+        if block is None:raise ValueError('Pending result no longer matches its recorded tool ID.')
+    except Exception as e:
+        diagnostic(mem,m,path,str(tool_id)+': '+str(e));return 0
+    try:
+        with mem.transaction():
+            recovered=recover_tool(mem,m,call,block.get('content'),bool(block.get('is_error')))
+            mem.db.execute('DELETE FROM transcript_calls WHERE path=? AND call_id=?',(path,tool_id))
+            mem.db.execute('DELETE FROM transcript_results WHERE path=? AND call_id=?',(path,tool_id))
+        return recovered
+    except Exception as e:
+        # The existing durable retry owns this pair after a capture failure.
+        preserve_failure(mem,m,path,call,block.get('content'),bool(block.get('is_error')))
+        diagnostic(mem,m,path,str(tool_id)+': '+str(e))
+        with mem.transaction():
+            mem.db.execute('DELETE FROM transcript_calls WHERE path=? AND call_id=?',(path,tool_id))
+            mem.db.execute('DELETE FROM transcript_results WHERE path=? AND call_id=?',(path,tool_id))
+        return 0
+
+
 def scan(mem,m,path,platform,sid,since,seconds=2,max_bytes=16_000_000):
     prepare(mem);path=Path(path).resolve();key=str(path)
     prior=mem.db.execute('SELECT * FROM transcript_cursors WHERE path=?',(key,)).fetchone()
     stat=path.stat();offset=prior['offset'] if prior and prior['offset']<=stat.st_size else 0
+    if needs_order_rescan(mem,prior,key):offset=0
     if prior and offset==stat.st_size and prior['mtime_ns']==stat.st_mtime_ns:return {'recovered':0,'complete':True,'offset':offset}
     cwd=prior['cwd'] if prior else None;memory_sid=(prior['memory_sid'] if prior else None) or sid
     began=time.monotonic();start_offset=offset;recovered=0
@@ -210,22 +271,17 @@ def scan(mem,m,path,platform,sid,since,seconds=2,max_bytes=16_000_000):
                 for block in content:
                     if not isinstance(block,dict) or block.get('type')!='tool_use':continue
                     call={'platform':platform,'sid':sid,'cwd':cwd,'id':block['id'],'name':block.get('name',''),'input':block.get('input',{}),'timestamp':timestamp}
-                    if native_exists(mem,sid,call['id']):continue
+                    if already_captured(mem,key,sid,call['id']):continue
                     mem.db.execute('INSERT OR REPLACE INTO transcript_calls VALUES(?,?,?)',(key,call['id'],m.safe_text(call)))
+                    recovered+=match_claude_result(mem,m,key,call['id'])
             elif o.get('type')=='user':
                 for block in content:
                     if not isinstance(block,dict) or block.get('type')!='tool_result':continue
                     tool_id=block.get('tool_use_id')
-                    saved=mem.db.execute('SELECT payload FROM transcript_calls WHERE path=? AND call_id=?',(key,tool_id)).fetchone()
-                    if not saved:continue
-                    call=json.loads(saved['payload'])
-                    try:
-                        with mem.transaction():
-                            recovered+=recover_tool(mem,m,call,block.get('content'),bool(block.get('is_error')))
-                            mem.db.execute('DELETE FROM transcript_calls WHERE path=? AND call_id=?',(key,tool_id))
-                    except Exception as e:
-                        preserve_failure(mem,m,key,call,block.get('content'),bool(block.get('is_error')))
-                        diagnostic(mem,m,key,str(tool_id)+': '+str(e))
+                    if not isinstance(tool_id,str) or not tool_id:continue
+                    if already_captured(mem,key,sid,tool_id):continue
+                    mem.db.execute('INSERT OR REPLACE INTO transcript_results VALUES(?,?,?)',(key,tool_id,begin))
+                    recovered+=match_claude_result(mem,m,key,tool_id)
         offset=stream.tell()
     # Native inserts arriving later supersede reconstructed representations,
     # retaining provenance without two active copies of the same tool event.
@@ -234,10 +290,10 @@ def scan(mem,m,path,platform,sid,since,seconds=2,max_bytes=16_000_000):
         SELECT 1 FROM entries native WHERE native.source='hook' AND native.session_id=recovered.session_id
         AND substr(native.source_key,-length(substr(recovered.source_key,instr(recovered.source_key,'::')+2)))=
             substr(recovered.source_key,instr(recovered.source_key,'::')+2))''',(memory_sid,))
-    mem.db.execute('''INSERT INTO transcript_cursors(path,platform,session_id,offset,mtime_ns,cwd,last_scan,recovered,memory_sid)
-        VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(path) DO UPDATE SET
+    mem.db.execute('''INSERT INTO transcript_cursors(path,platform,session_id,offset,mtime_ns,cwd,last_scan,recovered,memory_sid,result_order_version)
+        VALUES(?,?,?,?,?,?,?,?,?,1) ON CONFLICT(path) DO UPDATE SET
         offset=excluded.offset,mtime_ns=excluded.mtime_ns,cwd=excluded.cwd,last_scan=excluded.last_scan,
-        recovered=transcript_cursors.recovered+excluded.recovered,memory_sid=excluded.memory_sid''',
+        recovered=transcript_cursors.recovered+excluded.recovered,memory_sid=excluded.memory_sid,result_order_version=1''',
         (key,platform,sid,offset,stat.st_mtime_ns,cwd,m.now(),recovered,memory_sid))
     if platform=='claude':supersede_fork_copies(mem)
     return {'recovered':recovered,'complete':offset>=stat.st_size,'offset':offset}
@@ -286,8 +342,8 @@ def run(mem,m,config,seconds=8):
                 if stat.st_mtime<epoch:continue
                 sid=path.stem if platform=='claude' else path.stem[-36:]
                 if not re.fullmatch(r'[0-9a-fA-F-]{36}',sid):continue
-                prior=mem.db.execute('SELECT offset,mtime_ns,last_scan FROM transcript_cursors WHERE path=?',(str(path.resolve()),)).fetchone()
-                if prior and prior['offset']==stat.st_size and prior['mtime_ns']==stat.st_mtime_ns:continue
+                prior=mem.db.execute('SELECT * FROM transcript_cursors WHERE path=?',(str(path.resolve()),)).fetchone()
+                if prior and prior['offset']==stat.st_size and prior['mtime_ns']==stat.st_mtime_ns and not needs_order_rescan(mem,prior,path.resolve()):continue
                 candidates.append((prior['last_scan'] if prior else '',platform,str(path),sid))
         for _,platform,path,sid in sorted(candidates):
             if time.monotonic()-start>=seconds:break

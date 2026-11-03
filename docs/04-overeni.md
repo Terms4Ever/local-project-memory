@@ -231,3 +231,25 @@ Mock porovnával cestu z TEMP s cestou normalizovanou úložištěm; na runneru
 se neshodovaly a simulovaný druhý konzument se vůbec nespustil. Test nyní
 používá normalizovaný domov úložiště a výslovně ověřuje vyvolání simulace.
 Produkční mechanismus fronty se touto opravou nemění.
+
+## Ověření pořadí událostí 1.5.2
+
+Regrese 1.5.1 byla reprodukována na syntetickém transcriptu: běžné pořadí
+uložilo jednu událost, opačné ani po druhém průchodu žádnou. Sedm nových testů
+pokrývá opačné pořadí, restart a neúplný řádek mezi částmi, oddělení souborů
+a sessions, filtr citlivého obsahu, pozdější nativní hook, transakční selhání
+po vložení s opakováním a migraci starého kurzoru na konci nezměněného souboru.
+Změna původního řádku nesmí přiřadit cizí výsledek a musí být vidět v diagnostice.
+
+Lokálně 3. 11. 2026 na Windows s Pythonem 3.13:
+`Ran 115 tests in 51.904s`, `OK`. Důkazy nasazení a CI přesného publikovaného
+commitu se dokládají při uzavření [issue #2](https://github.com/Terms4Ever/local-project-memory/issues/2).
+Soukromé transcripty ani databáze nejsou součástí testů nebo repozitáře.
+
+Při nasazení prošel SQLite snapshot kontrolami quick_check a foreign_key_check.
+Konkrétní chybějící událost byla doplněna jednou, opakovaný průchod doplnil nulu;
+otisky dřívějších řádků stejné session zůstaly shodné. Konfigurace hostů se
+při výměně programu nezměnily. Nainstalované hooky a nový MCP proces prošly
+zápisem, čtením, potvrzením, simulovanou kompakcí a izolací jiné session/hosta.
+Osm hooků mělo odezvu 0,225 až 1,231 s při souběžném doplňování historie.
+Tento diagnostický průchod není novým testem rozhodování modelu.

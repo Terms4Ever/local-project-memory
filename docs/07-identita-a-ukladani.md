@@ -141,3 +141,13 @@ item_completed, nikoli opakované reprezentace odpovědí. Čtení pokračuje po
 bajtových kurzorech, neúplný poslední řádek počká. Obsah se nikdy nespouští.
 Práce dobíhá při další aktivitě hosta; u zavřených aplikací není slíbena
 okamžitá obnova. Podporované jsou hlavní místní transcript soubory hostů.
+
+Od 1.5.2 se Claude volání a výsledek párují v obou pořadích podle stejné cesty
+transcriptu a ID nástroje, s kontrolou session. transcript_results uchovává
+pouze byte offset původního výsledku; obsah se filtruje až se známým vstupem.
+Po přerušení se použije uložený odkaz. Pokud původní soubor mezitím zmizí nebo
+se řádek změní, vznikne viditelná diagnostika; cizí data se nepřiřadí.
+Položka statusu transcript_results_pending ukazuje dosud nespárované výsledky.
+Samotné čekání není potvrzený zápis ani automaticky chyba, volání může dorazit
+později. Staré nepřiřazené případy dostanou jeden nový průchod označený
+result_order_version=1; existující události se při něm neduplikují.

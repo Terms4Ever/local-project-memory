@@ -141,3 +141,19 @@ podle existujícího request_id; nemění poznámky ani jejich historii.
 Návrat používá zálohu programu. Ani při návratu nepřepisovat živou databázi
 starou kopií. Nové diagnostické soubory starší program ignoruje. Rozpracované
 chaty není nutné násilně restartovat; nový MCP status vyžaduje nové spojení.
+
+## Přechod na 1.5.2
+
+Před nasazením vytvoř konzistentní SQLite snapshot a kopii app. Při souběžných
+zápisech drž pro backup API jednu čtecí transakci, aby se velká kopie nezačínala
+opakovaně od začátku. Ověř snapshot a otisky konfigurace hostů.
+
+Nejdřív atomicky vyměň reconcile.py, nakonec memory.py. Pod zámkem pracovníka
+se při prepare doplní tabulka transcript_results a sloupec result_order_version;
+základní schéma zůstává 3 a původní záznamy se nemění. Staré procesy zůstávají
+kompatibilní. Chybějící historické páry se obnoví při dalším průchodu, dlouhé
+soubory postupně po částech. Ověř konkrétní doplněný záznam a druhý průchod
+bez duplicity. Nové hooky používají opravu ihned, otevřené chaty se neukončují.
+
+Případný návrat obnovuje program; novější paměť se nepřepisuje snapshotem.
+Starý pracovník doplňování opačné pořadí nepodporuje, pomocné tabulky ignoruje.

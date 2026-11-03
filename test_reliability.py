@@ -270,6 +270,107 @@ class ReliabilityTests(unittest.TestCase):
         self.assertIn('COMPLETE_RECOVERED_RESULT',row['body'])
         self.assertEqual(row['project_id'],self.mem.resolve(self.scope)['id'])
 
+    def test_reversed_result_survives_restart_and_partial_call(self):
+        call,result=self.claude_pair()
+        path=self.transcript([result]);self.assertEqual(self.scan(path)['recovered'],0)
+        self.assertEqual(self.mem.status()['transcript_results_pending'],1)
+        self.mem.close();self.mem=memory.Memory(self.home)
+        tail=json.dumps(call)
+        with path.open('a',encoding='utf8') as f:f.write(tail[:50])
+        self.assertFalse(self.scan(path)['complete'])
+        with path.open('a',encoding='utf8') as f:f.write(tail[50:]+'\n')
+        self.assertEqual(self.scan(path)['recovered'],1)
+        self.assertEqual(self.scan(path)['recovered'],0)
+        row=self.mem.db.execute("SELECT * FROM entries WHERE source='transcript'").fetchone()
+        self.assertIn('COMPLETE_RECOVERED_RESULT',row['body'])
+        self.assertEqual(self.mem.status()['transcript_results_pending'],0)
+
+    def test_reversed_result_pairs_in_same_scan_and_late_hook_deduplicates(self):
+        call,result=self.claude_pair()
+        path=self.transcript([result,call]);self.assertEqual(self.scan(path)['recovered'],1)
+        native=memory.prepare_event('claude','PostToolUse',{'cwd':str(self.cwd),'session_id':'synthetic-session',
+            'tool_use_id':'tool-1','tool_name':'Bash','tool_input':{},'tool_response':'native result'})
+        memory.record_event(self.mem,native)
+        self.assertEqual(self.scan(path)['recovered'],0)
+        self.assertEqual(self.mem.db.execute("SELECT count(*) FROM entries WHERE state='active'").fetchone()[0],1)
+
+    def test_reversed_results_never_pair_across_files_or_sessions(self):
+        call,result=self.claude_pair()
+        first=self.transcript([result]);second=self.transcript([call],name='other.jsonl')
+        self.scan(first);self.scan(second)
+        foreign={**call,'sessionId':'foreign'}
+        with first.open('a',encoding='utf8') as f:f.write(json.dumps(foreign)+'\n')
+        self.scan(first)
+        self.assertEqual(self.mem.db.execute('SELECT count(*) FROM entries').fetchone()[0],0)
+        with first.open('a',encoding='utf8') as f:f.write(json.dumps(call)+'\n')
+        self.assertEqual(self.scan(first)['recovered'],1)
+
+    def test_early_credential_result_stores_only_offset_then_omits_content(self):
+        call,result=self.claude_pair(name='Read',args={'file_path':str(self.cwd/'.env')})
+        path=self.transcript([result]);self.scan(path)
+        pending=dict(self.mem.db.execute('SELECT * FROM transcript_results').fetchone())
+        self.assertEqual(set(pending),{'path','call_id','byte_offset'})
+        with path.open('a',encoding='utf8') as f:f.write(json.dumps(call)+'\n')
+        self.assertEqual(self.scan(path)['recovered'],1)
+        row=self.mem.db.execute("SELECT body FROM entries WHERE source='transcript'").fetchone()[0]
+        self.assertNotIn('COMPLETE_RECOVERED_RESULT',row);self.assertIn('omitted',row)
+
+    def test_reversed_capture_failure_is_durable_and_retry_is_idempotent(self):
+        from unittest.mock import patch
+        call,result=self.claude_pair();path=self.transcript([result,call])
+        original=reconcile.recover_tool
+        def fail_after_insert(*args,**kwargs):
+            original(*args,**kwargs)
+            raise sqlite3.OperationalError('synthetic failure after insert')
+        with patch.object(reconcile,'recover_tool',side_effect=fail_after_insert):
+            self.assertEqual(self.scan(path)['recovered'],0)
+        self.assertEqual(self.mem.db.execute('SELECT count(*) FROM entries').fetchone()[0],0)
+        self.assertEqual(len(list((self.home/'transcript-retry').glob('*.json'))),1)
+        config={'since':'2026-10-28','roots':{}}
+        self.assertEqual(reconcile.run(self.mem,memory,config,seconds=10)['recovered'],1)
+        self.assertEqual(reconcile.run(self.mem,memory,config,seconds=10)['recovered'],0)
+        self.assertEqual(self.mem.status()['transcript_retries'],0)
+        self.assertEqual(self.mem.status()['unresolved_diagnostics'],[])
+
+    def test_old_eof_cursor_rescans_unmatched_call_once(self):
+        # Model the pre-1.5.2 cursor: result was skipped, call retained at EOF.
+        sid='11111111-1111-1111-1111-111111111111'
+        call,result=self.claude_pair();call['sessionId']=sid;result['sessionId']=sid
+        folder=self.root/'transcripts'/'project';folder.mkdir(parents=True)
+        path=folder/(sid+'.jsonl');path.write_text(json.dumps(result)+'\n'+json.dumps(call)+'\n',encoding='utf8')
+        reconcile.prepare(self.mem);key=str(path.resolve());stat=path.stat()
+        payload={'platform':'claude','sid':sid,'cwd':str(self.cwd),'id':'tool-1',
+                 'name':'Bash','input':{},'timestamp':call['timestamp']}
+        self.mem.db.execute('INSERT INTO transcript_calls VALUES(?,?,?)',(key,'tool-1',json.dumps(payload)))
+        self.mem.db.execute('''INSERT INTO transcript_cursors(path,platform,session_id,offset,mtime_ns,cwd,last_scan)
+            VALUES(?,?,?,?,?,?,?)''',(key,'claude',sid,stat.st_size,stat.st_mtime_ns,str(self.cwd),'old'))
+        self.mem.db.executescript('DROP TABLE transcript_results; ALTER TABLE transcript_cursors DROP COLUMN result_order_version;')
+        # Exercise selection even though neither file size nor mtime changed.
+        config={'since':'2026-10-28','roots':{'claude':str(folder.parent)}}
+        from unittest.mock import patch
+        original=reconcile.scan
+        def one_line(*args,**kwargs):return original(*args,**kwargs,max_bytes=1)
+        with patch.object(reconcile,'scan',side_effect=one_line):
+            self.assertEqual(reconcile.run(self.mem,memory,config,seconds=10)['recovered'],1)
+        self.assertLess(self.mem.db.execute('SELECT offset FROM transcript_cursors').fetchone()[0],stat.st_size)
+        self.assertEqual(reconcile.run(self.mem,memory,config,seconds=10)['recovered'],0)
+        self.assertEqual(reconcile.run(self.mem,memory,config,seconds=10)['candidates'],0)
+        self.assertEqual(self.mem.db.execute('SELECT result_order_version FROM transcript_cursors').fetchone()[0],1)
+        self.assertEqual(self.mem.db.execute("SELECT count(*) FROM entries WHERE source='transcript'").fetchone()[0],1)
+        self.assertEqual(self.mem.db.execute('SELECT count(*) FROM transcript_calls').fetchone()[0],0)
+
+    def test_changed_result_pointer_is_visible_and_never_pairs_foreign_data(self):
+        call,result=self.claude_pair();path=self.transcript([result]);self.scan(path)
+        changed={**result,'sessionId':'foreign-session'}
+        path.write_text(json.dumps(changed)+'\n'+json.dumps(call)+'\n',encoding='utf8')
+        # Invoke pairing directly with the original offset after source changes.
+        payload={'platform':'claude','sid':'synthetic-session','cwd':str(self.cwd),'id':'tool-1',
+                 'name':'Bash','input':{},'timestamp':call['timestamp']}
+        self.mem.db.execute('INSERT INTO transcript_calls VALUES(?,?,?)',(str(path.resolve()),'tool-1',json.dumps(payload)))
+        self.assertEqual(reconcile.match_claude_result(self.mem,memory,str(path.resolve()),'tool-1'),0)
+        self.assertEqual(self.mem.db.execute('SELECT count(*) FROM entries').fetchone()[0],0)
+        self.assertTrue(self.mem.status()['unresolved_diagnostics'])
+
     def test_native_event_is_not_duplicated_and_late_hook_supersedes_recovery(self):
         path=self.transcript(self.claude_pair());self.scan(path)
         native=memory.prepare_event('claude','PostToolUse',{'cwd':str(self.cwd),'session_id':'synthetic-session','tool_use_id':'tool-1','tool_name':'Bash','tool_input':{'command':'original'},'tool_response':'native representation'})

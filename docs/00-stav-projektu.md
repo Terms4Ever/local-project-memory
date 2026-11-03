@@ -1,7 +1,8 @@
 # Stav projektu
 
-Aktualizováno 2. 11. 2026. Verze 1.5.1 odděluje potvrzení zápisu od čerstvosti
-předání a zavádí průběžné kontroly i při práci na pozadí. Kontext upřednostňuje úplné aktuální
+Aktualizováno 3. 11. 2026. Verze 1.5.2 doplňuje i výsledek nástroje zapsaný
+v transcriptu před voláním, včetně dříve přeskočených případů. Zachovává oddělené
+potvrzení zápisu a čerstvost předání i kontroly při práci na pozadí. Kontext upřednostňuje úplné aktuální
 poznámky před starým syrovým výstupem a nezaměňuje staré vlastní předání
 za poslední stav projektu. Celé záznamy a původní importované řádky
 zůstávají uložené; schéma 3 se nemění. Nové vydání na GitHubu zatím nevzniklo.
@@ -36,7 +37,7 @@ konkrétního commitu, ne odhad podle staršího výsledku.
 ## Další práce
 
 - Sbírat důkazy z běžných desktop sessions pro podporované verze hostů.
-- Publikace zdrojů 1.5.1 a ověření CI se sledují v [issue #1](https://github.com/Terms4Ever/local-project-memory/issues/1).
+- Publikace opravy 1.5.2 a ověření CI se sledují v [issue #2](https://github.com/Terms4Ever/local-project-memory/issues/2).
 - Samostatný GitHub Release se ZIPem vyžaduje kontroly vydání podle dokumentu 02.
 - Automatické aktualizace a synchronizace PC nejsou zadáním této verze.
 
