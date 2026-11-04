@@ -258,7 +258,8 @@ Tento diagnostický průchod není novým testem rozhodování modelu.
 
 Publikace podle [issue #3](https://github.com/Terms4Ever/local-project-memory/issues/3)
 vyžaduje shodu VERSION, návodu, tagu a ZIPu. Balíček z git archive musí obsahovat
-stejné soubory a bajty jako vydávaný commit; kontrola ignorovaných souborů není
+stejné soubory a obsah jako vydávaný commit, včetně konců řádků určených
+verzovaným .gitattributes podle dokumentu 02; kontrola ignorovaných souborů není
 náhradou za porovnání celého seznamu. Po čistém rozbalení se spustí všech
 115 testů. Po publikaci se z GitHubu stáhne příloha a porovná SHA-256 s místním
 ověřeným balíčkem i SHA256SUMS.txt. Ověří se také Latest, viditelnost, cílový

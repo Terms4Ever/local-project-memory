@@ -49,11 +49,14 @@ uživatele pouze připravit změny nebo nevydávat má přednost.
 ZIP sestav z ověřeného commitu mimo zdrojovou složku:
 
 ```powershell
-git archive --format=zip --prefix=local-project-memory/ --output=../local-project-memory.zip HEAD
+git -c core.autocrlf=false -c core.eol=lf archive --format=zip --prefix=local-project-memory/ --output=../local-project-memory.zip HEAD
 ```
 
 Rozbal do nové složky, ověř shodu souborů s git ls-files a spusť celou sadu testů
 podle dokumentu 04.
+Konce řádků určuje verzovaný .gitattributes: PowerShell má CRLF, ostatní
+textové soubory LF. Výše uvedené volby odstraní závislost na místním nastavení
+Gitu; při porovnání obsahu respektuj tuto výslovnou konverzi PowerShellu.
 Nevytvářej ZIP kopií uživatelského profilu nebo pracovního adresáře s ignored
 soubory. Teprve po kontrole publikuj nové vydání a jeho ZIP pod novým tagem.
 Poznámky k vydání se předávají souborem; uvádějí změnu, požadavky a důkazy.
