@@ -204,3 +204,18 @@ Samostatný result_order_version u kurzoru označuje novou logiku. Starý Claude
 soubor s nepřiřazeným voláním se jednou čte znovu, i když velikost a mtime
 zůstaly stejné. Dlouhý průchod pokračuje po částech z nového kurzoru. Základní
 schéma 3 a tabulky historie se nemění; migrace pomocných tabulek je aditivní.
+
+## R016 - 4. 11. 2026 - Publikace verze zahrnuje tag i Release
+
+Vlastník požaduje navazující správu vydání, nikoli pouze push zdrojů.
+[Issue #3](https://github.com/Terms4Ever/local-project-memory/issues/3) doplňuje
+vydání 1.5.2 a sjednocuje postup. Poslední veřejný balíček byl 1.2.1;
+nové poznámky k vydání proto shrnují všechny navazující změny programu.
+Historické tagy zůstávají na původních commitech a již vydané přílohy se nemění.
+Nevydané meziverze se zpětně nedatují ani nedostávají fiktivní tagy.
+
+Dokončení další verze zahrnuje zelené CI, odpovídající anotovaný tag,
+veřejný Release, ZIP sestavený z přesného commitu a SHA256SUMS.txt.
+Testuje se čistě rozbalený balíček a po publikaci znovu jeho stažený otisk.
+Číslo v programu, návodech a distribuci musí souhlasit; přidání vydání 1.5.2
+nemění chování programu ani databázové schéma.

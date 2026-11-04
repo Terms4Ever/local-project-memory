@@ -39,7 +39,9 @@ Zapojení pravidel samo o sobě není důvod vytvářet zpětné issues.
 
 Spusť testy a kontroly podle dokumentu 04. Zkontroluj seznam souborů v commitu
 a diff proti zadání. Po pushi vyčkej na všechny kontroly konkrétního commitu.
-Vydávaný ZIP otestuj po rozbalení do prázdné složky. Výsledek uvádí i neověřené
+Při publikaci verze dokonči také odpovídající tag a Release podle dokumentu 02.
+Vydávaný ZIP otestuj po rozbalení do prázdné složky a porovnej otisk přílohy
+stažené z vydání. Samotný push není dokončené vydání. Výsledek uvádí i neověřené
 části, například chybějící skutečný desktop průchod na druhém PC.
 
 ## Pasti z praxe

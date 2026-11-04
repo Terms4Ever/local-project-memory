@@ -24,6 +24,11 @@ Program nemá webovou produkci. Distribuce je veřejný zdrojový repozitář a
 ruční GitHub Release; instalace běží místně v uživatelském profilu Windows.
 Push nic automaticky nenahrává na počítače uživatelů.
 
+Publikace nové verze je dokončená až po commitu, pushi, ověřeném tagu vX.Y.Z
+a veřejném GitHub Release s balíčkem a SHA-256. Tento postup je součástí
+zadání aktualizací; po pushi se nečeká na nové zadání vydání. Výslovný pokyn
+uživatele pouze připravit změny nebo nevydávat má přednost.
+
 ## Příprava vydání
 
 1. Změň VERSION v memory.py a odpovídající instalační dokumentaci.
@@ -35,6 +40,9 @@ Push nic automaticky nenahrává na počítače uživatelů.
    soukromé logy, profily hostů, konfigurace účtů ani zálohy.
 5. Commit a push musí projít místními hooky. Vyčkej na zelené workflow Kontroly
    přesného commitu, včetně Pravidla nastroje a obou testovacích verzí Pythonu.
+6. Ověř shodu VERSION, očekávané verze v návodu, tagu vX.Y.Z a názvu balíčku.
+   Před prvním vydáním dané verze lze opravit její dokumentaci bez zvýšení
+   čísla; již vydaný balíček se nikdy nepřepisuje jiným obsahem.
 
 ## Sestavení a publikace
 
@@ -50,6 +58,19 @@ Nevytvářej ZIP kopií uživatelského profilu nebo pracovního adresáře s ig
 soubory. Teprve po kontrole publikuj nové vydání a jeho ZIP pod novým tagem.
 Poznámky k vydání se předávají souborem; uvádějí změnu, požadavky a důkazy.
 Ověř viditelnost vydání, správný cílový commit, velikost a SHA-256 přílohy.
+
+Použij anotovaný tag vX.Y.Z na přesný commit, jehož CI prošlo. Push tagu
+projde běžnými hooky; pokud vyvolá další CI, ověř i tento běh. GitHub Release
+musí použít existující tag (gh release create --verify-tag), český název
+„Lokální paměť X.Y.Z“ a poznámky se změnami od předchozího veřejného vydání.
+Přilož local-project-memory-vX.Y.Z.zip a SHA256SUMS.txt; označ aktuální stabilní
+vydání jako Latest. Předchozí tagy, přílohy a data vydání nepřepisuj.
+
+Po publikaci stáhni přílohy do další složky, porovnej jejich otisky s ověřeným
+balíčkem a ověř přes API tag, commit, veřejnou viditelnost a Latest. Do záznamu
+o dokončení patří odkazy na Release a jeho kontroly. Pokud některé meziverze
+existovaly jen lokálně, nevytvářej pro ně zpětně fiktivní tagy; jejich změny
+popiš v následujícím skutečném vydání.
 
 Pro publikaci se používá přihlášení gh. Přihlašovací údaje se do repozitáře
 neukládají. GitHub Actions pro tuto distribuci nepotřebují žádný vlastní secret.

@@ -106,7 +106,9 @@ py memory.py check
 
 Místo `both` lze zvolit `claude` nebo `codex`. Pokud nemáš příkaz `py`, použij
 `python` s odpovídající verzí. Pro běžnou instalaci lze také stáhnout ZIP
-z [vydání](https://github.com/Terms4Ever/local-project-memory/releases).
+z [vydání v1.5.2](https://github.com/Terms4Ever/local-project-memory/releases/tag/v1.5.2).
+Balíček obsahuje program, návody a testy; přiložený SHA256SUMS.txt slouží
+ke kontrole staženého ZIPu.
 
 **Přenášíš i historii? Obnov ji před první instalací** podle
 [návodu k přenosu](docs/TRANSFER.md). Obnova odmítá přepsat existující databázi.

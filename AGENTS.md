@@ -53,6 +53,10 @@ kontrol jsou v `docs/04-overeni.md`. CI musí po pushi skutečně projít.
 
 ## Nasazení
 
+Publikace nové verze zahrnuje commit, push, tag vX.Y.Z a GitHub Release se ZIPem
+a SHA-256. Samotný push není dokončená publikace. Uživatel chce tento celý postup
+při dalších verzích; další souhlas s tagem či vydáním se znovu nevyžaduje.
+Číslo v tagu, VERSION, instalační dokumentaci a názvu ZIPu musí být stejné.
 Manuální GitHub Release až po zelených kontrolách. ZIP vzniká přes `git archive`
 z ověřeného commitu, nikdy zabalením uživatelského profilu. Existující vydání
 nepřepisovat jiným ZIPem; nová dokumentace balíčku dostane novou patch verzi.

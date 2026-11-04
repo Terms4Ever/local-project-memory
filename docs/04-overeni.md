@@ -253,3 +253,14 @@ při výměně programu nezměnily. Nainstalované hooky a nový MCP proces pro�
 zápisem, čtením, potvrzením, simulovanou kompakcí a izolací jiné session/hosta.
 Osm hooků mělo odezvu 0,225 až 1,231 s při souběžném doplňování historie.
 Tento diagnostický průchod není novým testem rozhodování modelu.
+
+## Ověření veřejného balíčku 1.5.2
+
+Publikace podle [issue #3](https://github.com/Terms4Ever/local-project-memory/issues/3)
+vyžaduje shodu VERSION, návodu, tagu a ZIPu. Balíček z git archive musí obsahovat
+stejné soubory a bajty jako vydávaný commit; kontrola ignorovaných souborů není
+náhradou za porovnání celého seznamu. Po čistém rozbalení se spustí všech
+115 testů. Po publikaci se z GitHubu stáhne příloha a porovná SHA-256 s místním
+ověřeným balíčkem i SHA256SUMS.txt. Ověří se také Latest, viditelnost, cílový
+commit tagu a všechny jeho běhy CI. Odkazy a naměřené otisky patří do důkazu
+uzavření issue a poznámek k vydání.
