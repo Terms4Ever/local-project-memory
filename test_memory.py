@@ -193,6 +193,21 @@ sys.stdin.readline()
         self.assertEqual(len(page['body']),8000)
         self.assertEqual(page['total_chars'],24001)
 
+    def test_codex_stop_collision_preserves_old_row_and_retries(self):
+        import memory
+        base = {'cwd':str(self.a),'session_id':'s','turn_id':'turn'}
+        def stop(text):
+            return prepare_event('codex','Stop',{**base,'last_assistant_message':text})
+        first, second = stop('first'), stop('second')
+        self.assertEqual(first['key'],second['key'])
+        self.assertNotEqual(memory.codex_stop_variant(first),memory.codex_stop_variant(second))
+        a = record_event(self.mem,first)
+        b = record_event(self.mem,second)
+        self.assertNotEqual(a['id'],b['id'])
+        self.assertEqual(a['source_key'],first['key'])
+        for text, expected in [('first',a),('second',b)]:
+            self.assertEqual(record_event(self.mem,stop(text))['id'],expected['id'])
+
     def test_second_prompt_in_same_turn_is_kept(self):
         base={'cwd':str(self.a),'session_id':'s','turn_id':'turn'}
         for text in ('first question','dialog answer','dialog answer'):

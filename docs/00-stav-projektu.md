@@ -1,12 +1,9 @@
 # Stav projektu
 
-Aktualizováno 4. 11. 2026. Verze 1.5.2 doplňuje i výsledek nástroje zapsaný
-v transcriptu před voláním, včetně dříve přeskočených případů. Zachovává oddělené
-potvrzení zápisu a čerstvost předání i kontroly při práci na pozadí. Kontext upřednostňuje úplné aktuální
-poznámky před starým syrovým výstupem a nezaměňuje staré vlastní předání
-za poslední stav projektu. Celé záznamy a původní importované řádky
-zůstávají uložené; schéma 3 se nemění. Distribuční vydání této verze:
-[v1.5.2](https://github.com/Terms4Ever/local-project-memory/releases/tag/v1.5.2).
+Aktualizováno 18. 11. 2026. Verze 1.5.3 zachovává různé závěrečné odpovědi Codexu
+se stejným ID kroku a umí obnovit správnou session z přepisu se dvěma UUID
+v názvu. Obě opravy pokrývají regresní testy. Schéma databáze zůstává ve verzi 3.
+Vydání sleduje [issue #4](https://github.com/Terms4Ever/local-project-memory/issues/4).
 Číslo aplikace je konstanta VERSION v memory.py. Společný generátor zatím
 Python verzi nečte, proto jeho blok obsahuje pouze údaje, které umí zjistit.
 

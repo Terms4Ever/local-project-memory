@@ -219,3 +219,10 @@ veřejný Release, ZIP sestavený z přesného commitu a SHA256SUMS.txt.
 Testuje se čistě rozbalený balíček a po publikaci znovu jeho stažený otisk.
 Číslo v programu, návodech a distribuci musí souhlasit; přidání vydání 1.5.2
 nemění chování programu ani databázové schéma.
+
+## R017 - 18. 11. 2026 - Kolize při ukončení kroku a identita přepisu
+
+Vydání 1.5.3 zachovává první uloženou odpověď i její ID. Další obsah se stejným
+klíčem události dostane vlastní záznam a vlastní soubor ve frontě. Identitu přepisu
+se dvěma UUID ověřujeme podle hlavičky a dokončené události podle thread_id.
+Regresní případy a podmínky vydání sleduje [issue #4](https://github.com/Terms4Ever/local-project-memory/issues/4).

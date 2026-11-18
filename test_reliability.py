@@ -455,6 +455,25 @@ class ReliabilityTests(unittest.TestCase):
         self.assertEqual(row['project_id'],self.mem.resolve(str(other))['id'])
         self.assertIn('CODEx_FULL_RESULT',row['body'])
 
+    def test_double_uuid_rollout_checks_header_and_keeps_thread_on_resume(self):
+        first = '11111111-1111-4111-8111-111111111111'
+        second = '22222222-2222-4222-8222-222222222222'
+        def completed(sid, ident):
+            return {'type':'event_msg','timestamp':'2026-10-28','payload':{'type':'item_completed',
+                    'thread_id':sid,'item':{'type':'CommandExecution','id':ident,'cwd':str(self.cwd)}}}
+        path = self.transcript([{'type':'session_meta','payload':{'id':first,'cwd':str(self.cwd)}},
+            completed(second,'foreign'),completed(first,'one')],name=f'rollout-test-{first}_{second}.jsonl')
+        self.assertEqual(self.scan(path,'codex',second)['recovered'],1)
+        with path.open('a',encoding='utf8') as stream:
+            print(json.dumps(completed(first,'two')),file=stream)
+        self.assertEqual(self.scan(path,'codex',second)['recovered'],1)
+        self.assertEqual(self.scan(path,'codex',second)['recovered'],0)
+        rows=self.mem.db.execute("SELECT DISTINCT session_id FROM entries WHERE source='transcript'").fetchall()
+        self.assertEqual([row[0] for row in rows],[first])
+        path.write_text(json.dumps({'type':'session_meta','payload':{'id':'foreign'}}),encoding='utf8')
+        with self.assertRaisesRegex(ValueError,'identity differs'):
+            self.scan(path,'codex',second)
+
     def test_codex_child_uses_explicit_root_and_skips_inherited_events(self):
         def completed(thread,ident):
             return {'type':'event_msg','timestamp':'2026-10-28T10:00:00Z','payload':{'type':'item_completed','thread_id':thread,'item':{

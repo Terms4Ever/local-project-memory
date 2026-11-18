@@ -6,7 +6,7 @@ Windows installer · Python standard library · SQLite FTS5 · stdio MCP
 Vlastní lokální paměť pro práci v **Claude Code a Codexu**. Program ukládá
 události přes hooky a nabízí hledání i strukturované poznámky přes MCP server
 `project-memory`. Není to oficiální produkt Anthropic ani OpenAI a není to
-balíček pro jejich plugin marketplace. Verze **1.5.2**.
+balíček pro jejich plugin marketplace. Verze **1.5.3**.
 
 **Tento repozitář obsahuje pouze program a syntetické testy. Neobsahuje žádné
 uživatelské konverzace, databáze paměti, účty ani přihlašovací údaje.**
@@ -19,7 +19,7 @@ Claude Code / Codex musí být již nainstalované a přihlášené zvlášť. J
 verze hosta podporující použitá MCP a hook rozhraní; kompatibilita všech verzí
 desktop aplikací není garantována. macOS/Linux instalátor zatím není podporován.
 
-1. Stáhni **local-project-memory-v1.5.2.zip** z [vydání v1.5.2](https://github.com/Terms4Ever/local-project-memory/releases/tag/v1.5.2)
+1. Stáhni **local-project-memory-v1.5.3.zip** z [vydání v1.5.3](https://github.com/Terms4Ever/local-project-memory/releases/tag/v1.5.3)
    a rozbal ho. Jeho SHA-256 je v přiloženém SHA256SUMS.txt. Pro vývoj lze
    repozitář naklonovat. Program nestahuje ani nepřenáší tvoje staré záznamy.
 2. Pokud chceš přenést i starou paměť, proveď **nejdřív obnovu zálohy** podle
@@ -49,7 +49,7 @@ desktop aplikací není garantována. macOS/Linux instalátor zatím není podpo
    > projektu, nebo session. Zkontroluj čekající události a chyby. Před prací
    > vyhledej související rozhodnutí a po práci ulož stručné předání se zdrojem.
 
-Očekávaná verze: **1.5.2**. Ukládání/hledání nevyžaduje model, API klíč, Chroma
+Očekávaná verze: **1.5.3**. Ukládání/hledání nevyžaduje model, API klíč, Chroma
 ani vzdálenou databázi. Samotný Claude/Codex však dál používá svého poskytovatele
 modelu; kontext předaný modelu není „offline AI“.
 
@@ -81,7 +81,7 @@ py verify_codex.py
 ```
 
 Očekává se pět našich hooků `enabled=true`, `trusted=trusted`, žádné chyby a MCP
-server verze 1.5.2. Pokud hooky nejsou důvěryhodné, nejprve zkontroluj jejich
+server verze 1.5.3. Pokud hooky nejsou důvěryhodné, nejprve zkontroluj jejich
 příkazy a program. Po této kontrole je lze schválit:
 
 ```powershell

@@ -207,9 +207,28 @@ def match_claude_result(mem,m,path,tool_id):
         return 0
 
 
+UUID_PATTERN = r'[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}'
+
+
+def rollout_session(path, filename_sid):
+    pair = re.search(rf'-({UUID_PATTERN})_({UUID_PATTERN})$', path.stem)
+    if not pair:
+        return filename_sid
+    with path.open('rb') as stream:
+        header = json.loads(stream.readline())
+    sid = header.get('payload', {}).get('id')
+    if header.get('type') != 'session_meta' or sid not in pair.groups():
+        raise ValueError('Transcript identity differs from filename.')
+    return sid
+
+
 def scan(mem,m,path,platform,sid,since,seconds=2,max_bytes=16_000_000):
     prepare(mem);path=Path(path).resolve();key=str(path)
     prior=mem.db.execute('SELECT * FROM transcript_cursors WHERE path=?',(key,)).fetchone()
+    if platform == 'codex':
+        sid = rollout_session(path, sid)
+        if prior and prior['session_id'] != sid:
+            raise ValueError('Saved cursor belongs to a different session.')
     stat=path.stat();offset=prior['offset'] if prior and prior['offset']<=stat.st_size else 0
     if needs_order_rescan(mem,prior,key):offset=0
     if prior and offset==stat.st_size and prior['mtime_ns']==stat.st_mtime_ns:return {'recovered':0,'complete':True,'offset':offset}
@@ -295,6 +314,10 @@ def scan(mem,m,path,platform,sid,since,seconds=2,max_bytes=16_000_000):
         offset=excluded.offset,mtime_ns=excluded.mtime_ns,cwd=excluded.cwd,last_scan=excluded.last_scan,
         recovered=transcript_cursors.recovered+excluded.recovered,memory_sid=excluded.memory_sid,result_order_version=1''',
         (key,platform,sid,offset,stat.st_mtime_ns,cwd,m.now(),recovered,memory_sid))
+    if platform == 'codex' and offset >= stat.st_size:
+        mem.db.execute("""UPDATE memory_diagnostics SET resolved_at=?,resolution=?
+            WHERE stage='reconcile' AND tool=? AND message=? AND resolved_at IS NULL""",
+            (m.now(), 'Verified rollout identity and completed scan', key, 'Transcript identity differs from filename.'))
     if platform=='claude':supersede_fork_copies(mem)
     return {'recovered':recovered,'complete':offset>=stat.st_size,'offset':offset}
 

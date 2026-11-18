@@ -18,7 +18,7 @@ import search_index
 import reconcile
 import memory_use
 
-VERSION = '1.5.2'
+VERSION = '1.5.3'
 MAX_BODY = 24000
 MAX_READ_CHARS = 24000
 MAX_CONTEXT_CHARS = 5000
@@ -547,11 +547,26 @@ def write_json_atomic(path,data):
         json.dump(data,f,ensure_ascii=False);f.flush();os.fsync(f.fileno())
     os.replace(tmp,path)
 
+def codex_stop_variant(event):
+    if event.get('platform') == 'codex' and event['event'] == 'Stop':
+        # Compatible with journal records already written by older versions.
+        return 'stop-variant:' + digest(json.dumps([event['key'], event['body']], ensure_ascii=False))
+    return None
+
+
 def record_event(mem,event):
     # Old journal records keep their original folder semantics.
     p=mem.resolve(event.get('memory_scope',event['cwd']))
     with mem.transaction():
-        row=mem.insert(p['id'],event['kind'],event['title'],event['body'],'hook',event['key'],
+        key = event['key']
+        variant = codex_stop_variant(event)
+        if variant:
+            existing = mem.db.execute(
+                "SELECT project_id,source_hash FROM entries WHERE source='hook' AND source_key=?", (key,)
+            ).fetchone()
+            if existing and existing['project_id'] == p['id'] and existing['source_hash'] != digest(safe_text(event['body'])):
+                key = variant
+        row=mem.insert(p['id'],event['kind'],event['title'],event['body'],'hook',key,
                        created=event['created'],session=event['session'],cwd=event['cwd'],git=event.get('git'))
         tool_id=event['key'].rsplit(':',1)[-1]
         suffix=':'+tool_id
@@ -608,7 +623,8 @@ def hook(platform,event,data,home=None):
         item=prepare_event(platform,event,data)
         if item is None:return {}
         # Disk-first journal: a killed process after this point can be replayed.
-        file=base/'pending'/(digest(item['key'])+'.json')
+        journal_key = codex_stop_variant(item) or item['key']
+        file=base/'pending'/(digest(journal_key)+'.json')
         write_json_atomic(file,item)
         with contextlib.closing(Memory(base)) as mem:
             capture_warning=None

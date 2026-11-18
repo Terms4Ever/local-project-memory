@@ -265,3 +265,13 @@ náhradou za porovnání celého seznamu. Po čistém rozbalení se spustí vše
 ověřeným balíčkem i SHA256SUMS.txt. Ověří se také Latest, viditelnost, cílový
 commit tagu a všechny jeho běhy CI. Odkazy a naměřené otisky patří do důkazu
 uzavření issue a poznámek k vydání.
+
+## Místní ověření závěrečných odpovědí a přepisů Codexu
+
+Regresní test opakuje dvě různé události Stop se stejným turn_id. Původní
+záznam si zachová své ID, druhý obsah má vlastní záznam i soubor ve frontě
+a opakování každé události vrátí stejné ID jako při prvním zápisu.
+
+Druhý test používá přepis se dvěma UUID v názvu. Ověřuje výběr podle hlavičky,
+vynechání události s cizím thread_id, pokračování po přidání řádku a odmítnutí
+hlavičky, jejíž ID neodpovídá ani jednomu UUID.
