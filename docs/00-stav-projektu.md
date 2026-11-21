@@ -1,9 +1,9 @@
 # Stav projektu
 
-Aktualizováno 18. 11. 2026. Verze 1.5.3 zachovává různé závěrečné odpovědi Codexu
-se stejným ID kroku a umí obnovit správnou session z přepisu se dvěma UUID
-v názvu. Obě opravy pokrývají regresní testy. Schéma databáze zůstává ve verzi 3.
-Vydání sleduje [issue #4](https://github.com/Terms4Ever/local-project-memory/issues/4).
+Aktualizováno 21. 11. 2026. Verze 1.5.4 přijme i jediné ID poznámky v seznamu.
+Obnova připraví obsah a zjistí Git projekt před zápisovou transakcí. Při obsazené
+databázi stav ukáže odklad a příští průchod pokračuje od uložené pozice.
+Vydání sleduje [issue #5](https://github.com/Terms4Ever/local-project-memory/issues/5).
 Číslo aplikace je konstanta VERSION v memory.py. Společný generátor zatím
 Python verzi nečte, proto jeho blok obsahuje pouze údaje, které umí zjistit.
 

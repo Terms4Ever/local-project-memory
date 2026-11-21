@@ -106,7 +106,7 @@ py memory.py check
 
 Místo `both` lze zvolit `claude` nebo `codex`. Pokud nemáš příkaz `py`, použij
 `python` s odpovídající verzí. Pro běžnou instalaci lze také stáhnout ZIP
-z [vydání v1.5.3](https://github.com/Terms4Ever/local-project-memory/releases/tag/v1.5.3).
+z [vydání v1.5.4](https://github.com/Terms4Ever/local-project-memory/releases/tag/v1.5.4).
 Balíček obsahuje program, návody a testy; přiložený SHA256SUMS.txt slouží
 ke kontrole staženého ZIPu.
 

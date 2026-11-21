@@ -226,3 +226,7 @@ Vydání 1.5.3 zachovává první uloženou odpověď i její ID. Další obsah 
 klíčem události dostane vlastní záznam a vlastní soubor ve frontě. Identitu přepisu
 se dvěma UUID ověřujeme podle hlavičky a dokončené události podle thread_id.
 Regresní případy a podmínky vydání sleduje [issue #4](https://github.com/Terms4Ever/local-project-memory/issues/4).
+
+## R018 - 21. 11. 2026 - Krátká transakce při obnově
+
+Příprava obsahu a zjištění projektu mohou čekat na externí proces. Před zápisem proto znovu ověříme duplicitu pod zámkem. Uložení výsledku a odstranění čekajícího páru zůstávají atomické. Jednoprvkový seznam ID normalizujeme před výpočtem klíče opakovaného požadavku.

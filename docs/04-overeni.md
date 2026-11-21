@@ -275,3 +275,7 @@ a opakování každé události vrátí stejné ID jako při prvním zápisu.
 Druhý test používá přepis se dvěma UUID v názvu. Ověřuje výběr podle hlavičky,
 vynechání události s cizím thread_id, pokračování po přidání řádku a odmítnutí
 hlavičky, jejíž ID neodpovídá ani jednomu UUID.
+
+## Souběh a nahrazení poznámky ve verzi 1.5.4
+
+Regresní test drží druhé zapisovací připojení, ověřuje odklad a následnou obnovu právě jedné události. Další test získá zápisový zámek během zjišťování Git projektu. Nahrazení poznámky se zkouší přes MCP s číslem i seznamem včetně odmítnutí cizího projektu.

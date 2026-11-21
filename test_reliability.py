@@ -21,6 +21,48 @@ class ReliabilityTests(unittest.TestCase):
 
     def tearDown(self):self.mem.close();self.tmp.cleanup()
 
+    def test_single_replacement_id_from_claude_is_idempotent(self):
+        old = self.mem.remember(self.scope,'Old','Original')
+        args = dict(self.scope,title='New',text='Replacement')
+        for invalid in ([], [None], [True], ['1'], [old['id'],old['id']]):
+            with self.assertRaisesRegex(ValueError,'exactly one'):
+                memory.dispatch(self.mem,'project_memory_remember',dict(args,supersedes=invalid))
+        other = self.root/'foreign';other.mkdir()
+        with self.assertRaisesRegex(ValueError,'foreign'):
+            memory.dispatch(self.mem,'project_memory_remember',dict(args,cwd=str(other),scope='project',supersedes=[old['id']]))
+        note = memory.dispatch(self.mem,'project_memory_remember',dict(args,supersedes=[old['id']]))
+        retry = memory.dispatch(self.mem,'project_memory_remember',dict(args,supersedes=old['id']))
+        self.assertEqual((retry['id'],note['supersedes']),(note['id'],old['id']))
+
+    def test_recovery_prepares_git_without_holding_writer(self):
+        from unittest.mock import patch
+        original = memory.git_info
+        with contextlib.closing(sqlite3.connect(self.mem.db_path,timeout=0)) as writer:
+            def probe(path):
+                writer.execute('BEGIN IMMEDIATE')
+                writer.rollback()
+                return original(path)
+            with patch.object(memory,'git_info',side_effect=probe):
+                self.assertEqual(self.scan(self.transcript(self.claude_pair()))['recovered'],1)
+
+    def test_busy_worker_resumes_after_writer_releases_database(self):
+        sid='11111111-1111-1111-1111-111111111111'
+        folder=self.root/'logs'/'project';folder.mkdir(parents=True)
+        events=self.claude_pair()
+        for event in events:event['sessionId']=sid
+        self.transcript(events,folder/(sid+'.jsonl'))
+        config={'since':'2026-10-26','roots':{'claude':str(folder.parent)}}
+        reconcile.prepare(self.mem)
+        self.mem.db.execute('PRAGMA busy_timeout=20')
+        with contextlib.closing(sqlite3.connect(self.mem.db_path)) as writer:
+            writer.execute('BEGIN IMMEDIATE')
+            self.assertTrue(reconcile.run(self.mem,memory,config)['retry_pending'])
+            self.assertFalse(self.mem.db.execute('SELECT 1 FROM transcript_cursors').fetchone())
+            writer.rollback()
+        self.assertEqual(reconcile.run(self.mem,memory,config)['recovered'],1)
+        self.assertEqual(reconcile.run(self.mem,memory,config)['recovered'],0)
+        self.assertEqual(self.mem.status()['unresolved_diagnostics'],[])
+
     def test_long_current_note_is_complete_even_with_old_keyword_match(self):
         self.mem.remember(self.scope,'Old Claude setup','Claude installation instructions')
         text='Current decision. '+('Useful detail. '*199)+'REQUIRED_TAIL'
@@ -318,11 +360,11 @@ class ReliabilityTests(unittest.TestCase):
     def test_reversed_capture_failure_is_durable_and_retry_is_idempotent(self):
         from unittest.mock import patch
         call,result=self.claude_pair();path=self.transcript([result,call])
-        original=reconcile.recover_tool
+        original=self.mem.insert
         def fail_after_insert(*args,**kwargs):
             original(*args,**kwargs)
             raise sqlite3.OperationalError('synthetic failure after insert')
-        with patch.object(reconcile,'recover_tool',side_effect=fail_after_insert):
+        with patch.object(self.mem,'insert',side_effect=fail_after_insert):
             self.assertEqual(self.scan(path)['recovered'],0)
         self.assertEqual(self.mem.db.execute('SELECT count(*) FROM entries').fetchone()[0],0)
         self.assertEqual(len(list((self.home/'transcript-retry').glob('*.json'))),1)
@@ -426,7 +468,7 @@ class ReliabilityTests(unittest.TestCase):
         ident='toolu_'+('B'*24);args={**self.scope,'title':'Decision','text':'Complete note'}
         self.scan(self.transcript(self.claude_pair(ident,'project_memory_remember',args,True)))
         other_scope={**self.scope,'session_id':'fork-session'}
-        self.assertEqual(reconcile.recover_note(self.mem,memory,'claude','fork-session',str(self.cwd),ident,other_scope|{'title':'Decision','text':'Complete note'},'2026-10-28T10:00:00Z'),0)
+        self.assertEqual(reconcile.recover_tool(self.mem,memory,{'platform':'claude','sid':'fork-session','cwd':str(self.cwd),'id':ident,'name':'project_memory_remember','input':other_scope|{'title':'Decision','text':'Complete note'},'timestamp':'2026-10-28T10:00:00Z'},'failed',True),0)
         tool='toolu_'+('C'*24)
         self.scan(self.transcript(self.claude_pair(tool),name='late.jsonl'))
         native=memory.prepare_event('claude','PostToolUse',{'cwd':str(self.cwd),'session_id':'parent-session','tool_use_id':tool,'tool_name':'Bash','tool_input':{}})

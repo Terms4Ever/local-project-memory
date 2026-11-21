@@ -5,10 +5,12 @@ representation from conflicting with a later native hook. No network access.
 """
 import contextlib
 import datetime as dt
+from functools import partial
 import json
 import os
 from pathlib import Path
 import re
+import sqlite3
 import subprocess
 import sys
 import time
@@ -78,7 +80,7 @@ def preserve_failure(mem,m,path,call,result,error):
     m.write_json_atomic(mem.home/'transcript-retry'/(key+'.json'),m.redact(payload))
 
 
-def recover_note(mem,m,platform,sid,cwd,tool_id,args,created):
+def prepare_note(mem,m,platform,sid,cwd,tool_id,args,created):
     args=m.normalize_tool_args(args)
     # Missing wrappers are recoverable only from the transcript's independently
     # identified session and directory. Conflicting explicit identity is refused.
@@ -87,6 +89,10 @@ def recover_note(mem,m,platform,sid,cwd,tool_id,args,created):
     supplied={k:args.get(k,ref[k]) for k in ref}
     if mem.resolve(supplied)['id']!=expected['id']:
         raise ValueError('Failed note belongs to a different scope; automatic recovery refused.')
+    return partial(store_note, mem, m, expected, platform, sid, cwd, tool_id, args, created)
+
+
+def store_note(mem,m,expected,platform,sid,cwd,tool_id,args,created):
     if platform=='claude' and existing_claude_tool(mem,expected['id'],tool_id,note=True):return 0
     title=args.get('title');text=args.get('text');kind=args.get('kind','fact')
     if not isinstance(title,str) or not isinstance(text,str) or kind not in m.KINDS:
@@ -109,20 +115,20 @@ def recover_note(mem,m,platform,sid,cwd,tool_id,args,created):
     return 1
 
 
-def recover_tool(mem,m,call,result,is_error=False):
+def prepare_recovery(mem,m,call,result,is_error):
     platform=call['platform'];sid=call['sid'];tool_id=call['id'];name=call['name']
     if 'project_memory' in name or 'project-memory' in name:
         if 'project_memory_remember' in name and is_error:
-            return recover_note(mem,m,platform,sid,call['cwd'],tool_id,call['input'],call['timestamp'])
-        return 0
+            return prepare_note(mem,m,platform,sid,call['cwd'],tool_id,call['input'],call['timestamp'])
+        return None
     event='PostToolUseFailure' if is_error else 'PostToolUse'
     key=platform+':'+sid+'::'+event+':'+tool_id
-    if native_exists(mem,sid,tool_id) or mem.db.execute("SELECT 1 FROM entries WHERE source='transcript' AND source_key=?",(key,)).fetchone():return 0
+    if native_exists(mem,sid,tool_id) or mem.db.execute("SELECT 1 FROM entries WHERE source='transcript' AND source_key=?",(key,)).fetchone():return None
     data={'cwd':call['cwd'],'session_id':sid,'tool_use_id':tool_id,'tool_name':name,
           'tool_input':call['input'],'tool_response':result}
     try:
         item=m.prepare_event(platform,event,data)
-        if item is None:return 0
+        if item is None:return None
         project=mem.resolve(item['memory_scope'])
     except ValueError:
         # A historical scratch directory may have been removed after the tool
@@ -140,10 +146,35 @@ def recover_tool(mem,m,call,result,is_error=False):
         payload={k:data[k] for k in ('tool_name','tool_input','tool_response')}
         if m.secret_file_event(data):payload={'tool_name':name,'omitted':'Potential credential file; content intentionally not captured.'}
         item={'title':event+' '+name,'body':m.safe_text(payload),'cwd':chosen}
+    return partial(store_tool, mem, platform, sid, tool_id, key, project, item, call['timestamp'])
+
+
+def store_tool(mem,platform,sid,tool_id,key,project,item,timestamp):
+    # A live hook can win after preparation. Check again under the write lock.
+    if native_exists(mem,sid,tool_id) or mem.db.execute(
+        "SELECT 1 FROM entries WHERE source='transcript' AND source_key=?", (key,)
+    ).fetchone():return 0
     if platform=='claude' and existing_claude_tool(mem,project['id'],tool_id):return 0
     mem.insert(project['id'],'event',item['title'],item['body'],'transcript',key,
-               created=call['timestamp'],session=sid,cwd=item['cwd'])
+               created=timestamp,session=sid,cwd=item['cwd'])
     return 1
+
+
+def recover_tool(mem,m,call,result,is_error=False,pair=None):
+    store = prepare_recovery(mem,m,call,result,is_error)
+    if store is None and pair is None:
+        return 0
+    with mem.transaction():
+        recovered = store() if store else 0
+        if pair:
+            mem.db.execute('DELETE FROM transcript_calls WHERE path=? AND call_id=?',pair)
+            mem.db.execute('DELETE FROM transcript_results WHERE path=? AND call_id=?',pair)
+        return recovered
+
+
+def writer_busy(error):
+    code = getattr(error, 'sqlite_errorcode', 0)
+    return isinstance(error, sqlite3.OperationalError) and (code & 255) in (sqlite3.SQLITE_BUSY, sqlite3.SQLITE_LOCKED)
 
 
 def path_from_uri(value):
@@ -192,12 +223,9 @@ def match_claude_result(mem,m,path,tool_id):
     except Exception as e:
         diagnostic(mem,m,path,str(tool_id)+': '+str(e));return 0
     try:
-        with mem.transaction():
-            recovered=recover_tool(mem,m,call,block.get('content'),bool(block.get('is_error')))
-            mem.db.execute('DELETE FROM transcript_calls WHERE path=? AND call_id=?',(path,tool_id))
-            mem.db.execute('DELETE FROM transcript_results WHERE path=? AND call_id=?',(path,tool_id))
-        return recovered
+        return recover_tool(mem,m,call,block.get('content'),bool(block.get('is_error')),pair=(path,tool_id))
     except Exception as e:
+        if writer_busy(e):raise
         # The existing durable retry owns this pair after a capture failure.
         preserve_failure(mem,m,path,call,block.get('content'),bool(block.get('is_error')))
         diagnostic(mem,m,path,str(tool_id)+': '+str(e))
@@ -276,8 +304,9 @@ def scan(mem,m,path,platform,sid,since,seconds=2,max_bytes=16_000_000):
                     except ValueError:inp={'raw':inp}
                 call={'platform':platform,'sid':memory_sid,'cwd':cwd,'id':tool_id,'name':name,'input':inp,'timestamp':timestamp}
                 try:
-                    with mem.transaction():recovered+=recover_tool(mem,m,call,result,error)
+                    recovered+=recover_tool(mem,m,call,result,error)
                 except Exception as e:
+                    if writer_busy(e):raise
                     preserve_failure(mem,m,key,call,result,error)
                     diagnostic(mem,m,key,str(tool_id)+': '+str(e))
                 continue
@@ -309,16 +338,16 @@ def scan(mem,m,path,platform,sid,since,seconds=2,max_bytes=16_000_000):
         SELECT 1 FROM entries native WHERE native.source='hook' AND native.session_id=recovered.session_id
         AND substr(native.source_key,-length(substr(recovered.source_key,instr(recovered.source_key,'::')+2)))=
             substr(recovered.source_key,instr(recovered.source_key,'::')+2))''',(memory_sid,))
-    mem.db.execute('''INSERT INTO transcript_cursors(path,platform,session_id,offset,mtime_ns,cwd,last_scan,recovered,memory_sid,result_order_version)
-        VALUES(?,?,?,?,?,?,?,?,?,1) ON CONFLICT(path) DO UPDATE SET
-        offset=excluded.offset,mtime_ns=excluded.mtime_ns,cwd=excluded.cwd,last_scan=excluded.last_scan,
-        recovered=transcript_cursors.recovered+excluded.recovered,memory_sid=excluded.memory_sid,result_order_version=1''',
-        (key,platform,sid,offset,stat.st_mtime_ns,cwd,m.now(),recovered,memory_sid))
     if platform == 'codex' and offset >= stat.st_size:
         mem.db.execute("""UPDATE memory_diagnostics SET resolved_at=?,resolution=?
             WHERE stage='reconcile' AND tool=? AND message=? AND resolved_at IS NULL""",
             (m.now(), 'Verified rollout identity and completed scan', key, 'Transcript identity differs from filename.'))
     if platform=='claude':supersede_fork_copies(mem)
+    mem.db.execute('''INSERT INTO transcript_cursors(path,platform,session_id,offset,mtime_ns,cwd,last_scan,recovered,memory_sid,result_order_version)
+        VALUES(?,?,?,?,?,?,?,?,?,1) ON CONFLICT(path) DO UPDATE SET
+        offset=excluded.offset,mtime_ns=excluded.mtime_ns,cwd=excluded.cwd,last_scan=excluded.last_scan,
+        recovered=transcript_cursors.recovered+excluded.recovered,memory_sid=excluded.memory_sid,result_order_version=1''',
+        (key,platform,sid,offset,stat.st_mtime_ns,cwd,m.now(),recovered,memory_sid))
     return {'recovered':recovered,'complete':offset>=stat.st_size,'offset':offset}
 
 
@@ -343,38 +372,54 @@ def worker_lock(home):
 
 
 def run(mem,m,config,seconds=8):
-    prepare(mem);start=time.monotonic();total=0;files=0
-    since=config['since'];epoch=dt.datetime.fromisoformat(since.replace('Z','+00:00')).timestamp()
     with worker_lock(mem.home) as acquired:
         if not acquired:return {'busy':True,'recovered':0}
-        for retry in (mem.home/'transcript-retry').glob('*.json'):
-            if time.monotonic()-start>=seconds:break
-            try:
-                item=json.loads(retry.read_text(encoding='utf8'))
-                with mem.transaction():total+=recover_tool(mem,m,item['call'],item['result'],item['is_error'])
-                retry.unlink(missing_ok=True)
-                mem.db.execute("UPDATE memory_diagnostics SET resolved_at=?,resolution=? WHERE stage='reconcile' AND tool=? AND message LIKE ? AND resolved_at IS NULL",
-                               (m.now(),'transcript retry completed',item['path'],item['call']['id']+':%'))
-            except Exception as e:diagnostic(mem,m,str(retry),e)
-        candidates=[]
-        for platform,root in config['roots'].items():
-            root=Path(root)
-            paths=root.glob('*/*.jsonl') if platform=='claude' else root.rglob('*.jsonl')
-            for path in paths:
-                stat=path.stat()
-                if stat.st_mtime<epoch:continue
-                sid=path.stem if platform=='claude' else path.stem[-36:]
-                if not re.fullmatch(r'[0-9a-fA-F-]{36}',sid):continue
-                prior=mem.db.execute('SELECT * FROM transcript_cursors WHERE path=?',(str(path.resolve()),)).fetchone()
-                if prior and prior['offset']==stat.st_size and prior['mtime_ns']==stat.st_mtime_ns and not needs_order_rescan(mem,prior,path.resolve()):continue
-                candidates.append((prior['last_scan'] if prior else '',platform,str(path),sid))
-        for _,platform,path,sid in sorted(candidates):
-            if time.monotonic()-start>=seconds:break
-            try:
-                result=scan(mem,m,path,platform,sid,since,seconds=min(2,max(.1,seconds-(time.monotonic()-start))))
-                total+=result['recovered'];files+=1
-            except Exception as e:diagnostic(mem,m,path,e)
-        m.write_json_atomic(mem.home/'reconcile-status.json',{'checked_at':m.now(),'files_processed':files,'files_waiting_at_start':len(candidates),'recovered_this_run':total})
+        try:
+            return run_locked(mem,m,config,seconds)
+        except sqlite3.OperationalError as error:
+            if not writer_busy(error):raise
+            # The SQLite busy timeout elapsed. The source and last committed
+            # cursor remain available for the next worker, even after restart.
+            state={'checked_at':m.now(),'deferred':'database busy','retry_pending':True}
+            m.write_json_atomic(mem.home/'reconcile-status.json',state)
+            return state
+
+
+def run_locked(mem,m,config,seconds):
+    prepare(mem);start=time.monotonic();total=0;files=0
+    since=config['since'];epoch=dt.datetime.fromisoformat(since.replace('Z','+00:00')).timestamp()
+    for retry in (mem.home/'transcript-retry').glob('*.json'):
+        if time.monotonic()-start>=seconds:break
+        try:
+            item=json.loads(retry.read_text(encoding='utf8'))
+            total+=recover_tool(mem,m,item['call'],item['result'],item['is_error'])
+            mem.db.execute("UPDATE memory_diagnostics SET resolved_at=?,resolution=? WHERE stage='reconcile' AND tool=? AND message LIKE ? AND resolved_at IS NULL",
+                           (m.now(),'transcript retry completed',item['path'],item['call']['id']+':%'))
+            retry.unlink(missing_ok=True)
+        except Exception as e:
+            if writer_busy(e):raise
+            diagnostic(mem,m,str(retry),e)
+    candidates=[]
+    for platform,root in config['roots'].items():
+        root=Path(root)
+        paths=root.glob('*/*.jsonl') if platform=='claude' else root.rglob('*.jsonl')
+        for path in paths:
+            stat=path.stat()
+            if stat.st_mtime<epoch:continue
+            sid=path.stem if platform=='claude' else path.stem[-36:]
+            if not re.fullmatch(r'[0-9a-fA-F-]{36}',sid):continue
+            prior=mem.db.execute('SELECT * FROM transcript_cursors WHERE path=?',(str(path.resolve()),)).fetchone()
+            if prior and prior['offset']==stat.st_size and prior['mtime_ns']==stat.st_mtime_ns and not needs_order_rescan(mem,prior,path.resolve()):continue
+            candidates.append((prior['last_scan'] if prior else '',platform,str(path),sid))
+    for _,platform,path,sid in sorted(candidates):
+        if time.monotonic()-start>=seconds:break
+        try:
+            result=scan(mem,m,path,platform,sid,since,seconds=min(2,max(.1,seconds-(time.monotonic()-start))))
+            total+=result['recovered'];files+=1
+        except Exception as e:
+            if writer_busy(e):raise
+            diagnostic(mem,m,path,e)
+    m.write_json_atomic(mem.home/'reconcile-status.json',{'checked_at':m.now(),'files_processed':files,'files_waiting_at_start':len(candidates),'recovered_this_run':total})
     return {'recovered':total,'files':files,'candidates':len(candidates)}
 
 
